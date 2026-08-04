@@ -116,6 +116,18 @@ else
   echo "    WARNING: no compiler-rt darwin dir under $CROSS_STAGE/lib/clang" >&2
 fi
 
+# The runtimes' HEADERS, not just their libraries. LLVM_ENABLE_RUNTIMES="" means this build produces
+# no libc++ headers either, and a toolchain that ships libc++.a without <iostream> cannot compile a
+# single C++ program -- it fails with "'iostream' file not found", which reads like a broken install
+# rather than a missing build step. Caught by the "best-effort, never gates" Rosetta smoke, which is
+# exactly the kind of defect no amount of inspecting the staged file list would have surfaced.
+for h in "c++" "__libunwind_config.h" "libunwind.h" "libunwind.modulemap"; do
+  [ -e "$CROSS_STAGE/include/$h" ] || continue
+  rm -rf "$STAGE/include/$h"
+  cp -R "$CROSS_STAGE/include/$h" "$STAGE/include/"
+done
+[ -d "$STAGE/include/c++/v1" ] || { echo "FATAL: libc++ headers missing from $STAGE/include/c++/v1" >&2; exit 1; }
+
 cp -p "$CROSS_STAGE/lib/libMacportsLegacySupport.a" "$STAGE/lib/"
 rm -rf "$STAGE/include/mavericks-compat" "$STAGE/include/LegacySupport"
 cp -R "$CROSS_STAGE/include/mavericks-compat" "$STAGE/include/"

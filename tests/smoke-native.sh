@@ -38,23 +38,36 @@ while IFS= read -r b; do set -- "$@" "$b"; done < "$list"
 echo "    guarding $# binaries"
 sh "$MSC_SCRIPTS/assert_binary_compatible.sh" "$@"
 
-echo "==> best-effort Rosetta smoke (never gates)"
-# Functional stand-in for a real 10.9 run. Non-gating on purpose: Rosetta's willingness to run a
-# min-10.9 x86_64 binary on macOS 26 is not something this repo controls, and a released toolchain is
-# validated out-of-band on real hardware before it is trusted.
+echo "==> Rosetta functional smoke"
+# Rosetta's AVAILABILITY never gates -- whether macOS 26 will run a min-10.9 x86_64 binary is not
+# something this repo controls, and a release is validated out-of-band on real 10.9 hardware anyway.
+#
+# But "non-gating" must not mean "ignore the result", which is how this test first reported OK for a
+# toolchain that could not compile a single C++ program: the native build produces no libc++ HEADERS
+# (LLVM_ENABLE_RUNTIMES=""), they were not carried over from the cross stage, and every compile died
+# with "'iostream' file not found" while the suite stayed green. So the two outcomes are separated:
+#
+#   Rosetta cannot run our binaries at all  -> SKIP, genuinely not our problem
+#   Rosetta runs clang++ and the COMPILE fails -> FAIL, that is a broken product
+#
+# `clang++ --version` is the probe: if that executes, the toolchain runs here, and anything failing
+# afterwards is a defect in what we shipped.
 if [ ! -e "$STAGE/SDKs/MacOSX10.9.sdk" ]; then
   SDK="$(sh "$MSC_SCRIPTS/fetch_sdk.sh")"; mkdir -p "$STAGE/SDKs"; ln -sfn "$SDK" "$STAGE/SDKs/MacOSX10.9.sdk"
 fi
 softwareupdate --install-rosetta --agree-to-license >/dev/null 2>&1 || true
-t="$(mktemp -d)"
-printf '#include <iostream>\nint main(){std::cout<<"hi\\n";return 0;}\n' > "$t/h.cpp"
-if arch -x86_64 "$STAGE/bin/clang++" "$t/h.cpp" -o "$t/h" 2>"$t/err"; then
-  if lipo -archs "$t/h" | grep -qw x86_64; then
-    echo "    rosetta smoke: the native clang++ ran and built an x86_64 binary"
-    "$t/h" >/dev/null 2>&1 && echo "    rosetta smoke: its output also ran"
-  fi
+t="$(mktemp -d)"; trap 'rm -rf "$t"' EXIT
+if ! arch -x86_64 "$STAGE/bin/clang++" --version >/dev/null 2>&1; then
+  echo "    SKIP: cannot execute an x86_64/10.9 binary here (no Rosetta); validate on real hardware"
 else
-  echo "    rosetta smoke: skipped/failed (non-gating): $(head -1 "$t/err")"
+  echo "    Rosetta runs the native clang++ -- from here, failures are real defects"
+  printf '#include <iostream>\nint main(){std::cout<<"hi\\n";return 0;}\n' > "$t/h.cpp"
+  arch -x86_64 "$STAGE/bin/clang++" "$t/h.cpp" -o "$t/h" \
+    || { echo "FAIL: the native clang++ cannot compile a hello world" >&2; exit 1; }
+  lipo -archs "$t/h" | grep -qw x86_64 \
+    || { echo "FAIL: the native clang++ emitted a non-x86_64 binary" >&2; exit 1; }
+  sh "$MSC_SCRIPTS/assert_binary_compatible.sh" "$t/h"
+  echo "    the native clang++ built a 10.9-safe x86_64 binary"
+  "$t/h" >/dev/null 2>&1 && echo "    ...and its output runs too"
 fi
-rm -rf "$t"
 echo "OK smoke-native"
