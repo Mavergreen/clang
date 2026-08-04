@@ -11,7 +11,13 @@ STAGE="$WORK/stage$PREFIX"
 VER="$(sh "$MSC_SCRIPTS/resolve-version.sh" "$(sh "$MSC_SCRIPTS/release-mode.sh")")"
 DIST="$HERE/../dist"; mkdir -p "$DIST"
 PAYLOAD="$WORK/stage"     # DESTDIR root; contains .$PREFIX
-OUT="$DIST/mavericks-clang-cross-$VER.pkg"
+NAME="mavericks-clang-cross-$VER.pkg"
+# BUILD the pkg on LOCAL disk, then move the finished artifact into dist/. dist/ is inside the repo,
+# which on a dev box is an NFS mount: pkgbuild writes a ~2.2GB payload as many small random writes,
+# which NFS serves at ~170KB/s -- an hour for what takes minutes locally. One sequential move at the
+# end costs a fraction of that. On CI dist/ is runner-local and this is a no-op either way.
+STAGING_OUT="$WORK/out"; mkdir -p "$STAGING_OUT"
+OUT="$STAGING_OUT/$NAME"
 
 # The Apple 10.9 SDK is NOT redistributed -- the pkg ships libexec/fetch_sdk.sh and the SDK arrives at
 # first use. tests/smoke-target.sh legitimately populates SDKs/MacOSX10.9.sdk as a symlink into this
@@ -30,6 +36,9 @@ pkg="$(sh "$MSC_SCRIPTS/build_component_pkg.sh" \
   --version "$VER" \
   --install-location "/" \
   --out "$OUT")"
+mv "$pkg" "$DIST/$NAME"
+rm -f "$STAGING_OUT/$(basename "$NAME" .pkg)-components.plist"
+pkg="$DIST/$NAME"
 echo "built $pkg"
 
 # What this variant was built FROM (conformance compares variants; a reader can see it).
