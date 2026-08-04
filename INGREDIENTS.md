@@ -17,6 +17,13 @@ Not ingredients: `build/*.sh` and `native-bootstrap/` are this repo's own recipe
 repackage you cut deliberately (`workflow_dispatch` with `local_release=true`), not something Renovate
 drives.
 
+Shipped shim (`build/shim/` → `include/mavericks-compat/` in the toolchain): hand-authored back-fill
+headers (`aligned_alloc`, `mbstate_t`) for the handful of 10.9-missing symbols the newer libc++ needs
+that the macports-legacy-support shim does not carry. It is our own source, not an external input, so
+there is nothing for Renovate to pin or track — but unlike `build/*.sh` it is **baked into the
+artifact** (`clang.cfg` references it via `-isystem`), so it is recorded here for anyone auditing what
+the shipped toolchain contains. A change to it is a deliberate repackage, like a patch.
+
 ## Why no source checksum is pinned for LLVM
 
 There is no `LLVM_SHA256` in `build/versions.sh` on purpose. A pinned hash cannot vouch for a tarball
