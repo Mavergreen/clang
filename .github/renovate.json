@@ -1,0 +1,21 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "github>ModernMavericks/shared-cmake"
+  ],
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "Track LLVM releases. UPSTREAM_VERSION is bare x.y.z; upstream tags them llvmorg-x.y.z. No allowedVersions cap: this repo ships ONE product from ONE upstream (unlike golang's parallel minor lines), so there is no line for Renovate to walk off.",
+      "managerFilePatterns": [
+        "/^UPSTREAM_VERSION$/"
+      ],
+      "matchStrings": [
+        "^(?<currentValue>.+?)\\s*$"
+      ],
+      "depNameTemplate": "llvm/llvm-project",
+      "datasourceTemplate": "github-tags",
+      "extractVersionTemplate": "^llvmorg-(?<version>.+)$"
+    }
+  ]
+}
