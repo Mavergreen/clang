@@ -27,7 +27,18 @@ find "$P/bin" "$P/lib" "$P/libexec" -type f 2>/dev/null > "$tmp" || true
 [ -s "$tmp" ] || { echo "FATAL: no files under $P/{bin,lib,libexec} -- nothing audited" >&2; exit 1; }
 # Read from a FILE, not a pipeline: a `while … | read` runs in a subshell and would lose n/bad.
 while IFS= read -r f; do
-  file "$f" 2>/dev/null | grep -q Mach-O || continue
+  # Audit LINKED IMAGES only. A static archive must be excluded explicitly, not by accident: `file`
+  # calls a fat one "Mach-O universal binary ... [x86_64:current ar archive]", so a bare Mach-O match
+  # lets it through, and `otool -L` on an archive prints a header line per MEMBER --
+  # "/path/libclang_rt.osx.a(divtc3.c.o):" -- which reads exactly like an absolute dependency and
+  # fails the gate forever. Archives carry no load commands that ship anyway; their members' symbols
+  # are resolved at the final link, which is what tests/smoke-target.sh actually checks.
+  desc="$(file "$f" 2>/dev/null)"
+  case "$desc" in
+    *"ar archive"*) continue ;;
+    *Mach-O*executable*|*Mach-O*"shared library"*|*Mach-O*bundle*) : ;;
+    *) continue ;;
+  esac
   n=$((n+1))
   paths="$(printf '%s\n%s\n%s\n' \
     "$(otool -L "$f" 2>/dev/null | tail -n +2 | awk '{print $1}')" \
