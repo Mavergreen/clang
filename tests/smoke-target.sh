@@ -10,7 +10,7 @@ set -eu
 HERE="$(cd "$(dirname "$0")" && pwd)"; ROOT="$(cd "$HERE/.." && pwd)"
 . "$ROOT/build/versions.sh"
 : "${MSC_SCRIPTS:?need shared-cmake}"
-STAGE="$WORK/stage$PREFIX"
+STAGE="$WORK/stage$CROSS_PREFIX"
 CLANGXX="$STAGE/bin/clang++"
 [ -x "$CLANGXX" ] || { echo "not built -- skipping"; exit 77; }
 

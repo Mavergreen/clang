@@ -11,7 +11,7 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 : "${MSC_SCRIPTS:?mavericks-shared-cmake not found; install it -- see its README}"
 JOBS="$(sysctl -n hw.ncpu 2>/dev/null || echo 4)"
 
-STAGE="$WORK/stage$PREFIX"          # DESTDIR-style staging at the install prefix
+STAGE="$WORK/stage$CROSS_PREFIX"          # DESTDIR-style staging at the install prefix
 SRC="$WORK/llvm-project-$LLVM_VERSION.src"
 BLD="$WORK/llvm-build"
 mkdir -p "$WORK"
@@ -92,7 +92,7 @@ RC="-isystem $HERE/shim/include -isystem $LEGACY_INC/LegacySupport -include $HER
 rm -rf "$BLD"
 cmake -G Ninja -S "$SRC/llvm" -B "$BLD" \
   -DCMAKE_BUILD_TYPE=Release \
-  -DCMAKE_INSTALL_PREFIX="$PREFIX" \
+  -DCMAKE_INSTALL_PREFIX="$CROSS_PREFIX" \
   -DCMAKE_C_COMPILER=/usr/bin/clang -DCMAKE_CXX_COMPILER=/usr/bin/clang++ \
   -DLLVM_ENABLE_PROJECTS="clang;lld" \
   -DLLVM_ENABLE_RUNTIMES="libcxx;libcxxabi;libunwind;compiler-rt" \
@@ -150,7 +150,7 @@ RTREL="${RTDIR#"$STAGE"/}"          # e.g. lib/x86_64-apple-macos10.9
 echo "    target C++ runtime: $RTREL"
 
 # First-use SDK fetch: ship the pinned-SDK fetch script; the SDK itself is deliberately NOT
-# redistributed (Apple's bytes). clang.cfg references $PREFIX/SDKs/MacOSX10.9.sdk relatively.
+# redistributed (Apple's bytes). clang.cfg references $CROSS_PREFIX/SDKs/MacOSX10.9.sdk relatively.
 cp "$MSC_SCRIPTS/fetch_sdk.sh" "$MSC_SCRIPTS/mavericks_fetch.sh" "$STAGE/libexec/"
 
 # clang.cfg / clang++.cfg -- ported from native-bootstrap/build.sh wire_clang22, retargeted to

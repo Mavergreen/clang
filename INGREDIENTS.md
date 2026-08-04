@@ -8,7 +8,7 @@ to port. An own-upstream bump cuts `<upstream>-mavericks.1`; an ingredient bump 
 
 | Ingredient | Pinned in | Renovate | On a bump |
 |---|---|---|---|
-| LLVM/Clang source (own upstream) | `UPSTREAM_VERSION` | ✅ customManager → `github-tags` on `llvm/llvm-project` | `release.yml` on push to main cuts `-mavericks.1` |
+| LLVM/Clang source (own upstream) | `lines/<line>/UPSTREAM_VERSION` | ✅ per-line customManager → `github-tags` on `llvm/llvm-project`, capped to the line's major | `release.yml` on push to main cuts `-mavericks.1` |
 | macports-legacy-support shim (prebuilt) | `MLS_VERSION # mavericks-legacysupport` in `build/versions.sh` | ✅ shared preset's `# mavericks-legacysupport` customManager | `build/versions.sh` is a watched path → repackage dispatched |
 | LLVM release-signing keys | `keys/llvm-release.asc` | ❌ **untrackable — manual refresh** (see below) | not a watched path; a stale bundle fails the build loudly, never silently |
 | MacOSX10.9 SDK | `ModernMavericks/shared-cmake@v1` (`fetch_sdk.sh`) | ✅ github-actions manager tracks the tag | `@v1` is a *moving* tag, so content moves without any path here changing |
@@ -46,12 +46,35 @@ the point of preferring a signature to a hash. Carrying the set LLVM publishes f
 their own trust model, not a widening of ours. Refresh the file if LLVM adds a release manager; the
 failure mode is a loud build failure at `gpg --verify`, never a silent downgrade.
 
+## Lines, and the two variants a line ships
+
+A **line** is an LLVM major (`lines/22/UPSTREAM_VERSION` = 22.1.1). Lines are separate products that
+install side by side, so a clang-22 user is never carried onto clang-23; adding a major is one new
+`lines/<major>/UPSTREAM_VERSION` plus a same-shaped, same-capped Renovate manager. Each line's manager
+uses a per-line `depName` (`llvm-22`) with `packageName` pointing at the real repo — one shared
+`depName` could not be capped per line, and an uncapped line is one Renovate bump away from silently
+becoming a different product.
+
+Each line ships **two variants from one release**, which never coexist on a machine:
+
+| Variant | Runs on | Prefix | Identifier | Install floor |
+|---|---|---|---|---|
+| native | x86_64 Mavericks (the flagship) | `/usr/local/mavericks-clang-<line>` | `dev.modernmavericks.clang.clang<line>` | **10.9.5** |
+| cross | modern arm64 macOS | `/usr/local/mavericks-clang-<line>-cross` | `dev.modernmavericks.clang.clang<line>-cross` | none |
+
+Both target `x86_64-apple-macos10.9`, and both are built on the modern arm64 runner in one run — the
+native variant is cross-*hosted* using the cross variant as its compiler, so nothing x86_64 is ever
+executed during the build. Their `build-info-*.txt` records must agree on `llvm` and `legacy_support`
+(conformance compares any key appearing in more than one variant); `variant`, `arch`, `prefix`, `pkg`
+and `identifier` are the keys that are supposed to differ.
+
 ## Conformance deviations
 
-- **floor:mavericks-clang-cross-\*.pkg** — this variant RUNS on modern macOS and only TARGETS 10.9, so
-  it declares no 10.9.5 install floor (golang cross-pkg precedent).
-- **updater:mavericks-clang-cross-\*.pkg** — no Sparkle updater in this phase (swift-toolchain
-  precedent for a heavy dev toolchain); added in a later phase.
+- **floor:mavericks-clang-\*-cross-\*.pkg** — this variant RUNS on modern macOS and only TARGETS 10.9,
+  so it declares no 10.9.5 install floor (golang cross-pkg precedent). The **native** pkg's 10.9.5
+  floor is the mirror of this and is a requirement, not a deviation — it is listed above, not here.
+- **updater:mavericks-clang-\*.pkg** — no Sparkle updater in this phase for either variant
+  (swift-toolchain precedent for a heavy dev toolchain); a later phase adds one feed per line.
 - **sdk:not-redistributed** — the Apple MacOSX10.9 SDK is not baked into the artifact. The pkg ships
   `libexec/fetch_sdk.sh` and the SDK is fetched at first use (golang precedent + redistribution
   cleanliness).

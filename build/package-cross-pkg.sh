@@ -6,12 +6,12 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 . "$HERE/versions.sh"
 : "${MSC_SCRIPTS:?need shared-cmake}"
 export COPYFILE_DISABLE=1
-STAGE="$WORK/stage$PREFIX"
+STAGE="$WORK/stage$CROSS_PREFIX"
 [ -x "$STAGE/bin/clang" ] || { echo "FATAL: run build-cross.sh first" >&2; exit 1; }
 VER="$(sh "$MSC_SCRIPTS/resolve-version.sh" "$(sh "$MSC_SCRIPTS/release-mode.sh")")"
 DIST="$HERE/../dist"; mkdir -p "$DIST"
-PAYLOAD="$WORK/stage"     # DESTDIR root; contains .$PREFIX
-NAME="mavericks-clang-cross-$VER.pkg"
+PAYLOAD="$WORK/stage"     # DESTDIR root; contains .$CROSS_PREFIX
+NAME="mavericks-clang-${CLANG_LINE}-cross-$VER.pkg"
 # BUILD the pkg on LOCAL disk, then move the finished artifact into dist/. dist/ is inside the repo,
 # which on a dev box is an NFS mount: pkgbuild writes a ~2.2GB payload as many small random writes,
 # which NFS serves at ~170KB/s -- an hour for what takes minutes locally. One sequential move at the
@@ -32,7 +32,7 @@ find "$PAYLOAD" -name '._*' -delete 2>/dev/null || true
 
 pkg="$(sh "$MSC_SCRIPTS/build_component_pkg.sh" \
   --root "$PAYLOAD" \
-  --identifier "$PKG_IDENTIFIER" \
+  --identifier "$CROSS_IDENTIFIER" \
   --version "$VER" \
   --install-location "/" \
   --out "$OUT")"
@@ -43,6 +43,6 @@ echo "built $pkg"
 
 # What this variant was built FROM (conformance compares variants; a reader can see it).
 sh "$MSC_SCRIPTS/build-info.sh" "$DIST/build-info-cross.txt" \
-  variant=cross arch=arm64 prefix="$PREFIX" pkg="$(basename "$pkg")" identifier="$PKG_IDENTIFIER" \
+  variant=cross arch=arm64 prefix="$CROSS_PREFIX" pkg="$(basename "$pkg")" identifier="$CROSS_IDENTIFIER" \
   llvm="$LLVM_VERSION" legacy_support="$MLS_VERSION" target="$TARGET_TRIPLE"
 cat "$DIST/build-info-cross.txt"

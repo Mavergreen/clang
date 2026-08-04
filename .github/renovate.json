@@ -6,16 +6,26 @@
   "customManagers": [
     {
       "customType": "regex",
-      "description": "Track LLVM releases. UPSTREAM_VERSION is bare x.y.z; upstream tags them llvmorg-x.y.z. No allowedVersions cap: this repo ships ONE product from ONE upstream (unlike golang's parallel minor lines), so there is no line for Renovate to walk off.",
+      "description": "Track LLVM for the 22 LINE. Each line is a separate product with its own lines/<major>/UPSTREAM_VERSION and its own cap, so a line never jumps major: LLVM 23 arrives as a new lines/23/ with its own manager, not by moving this one. depName is per-line (llvm-22) with packageName pointing at the real repo -- one shared depName could not be capped per line.",
       "managerFilePatterns": [
-        "/^UPSTREAM_VERSION$/"
+        "/^lines/22/UPSTREAM_VERSION$/"
       ],
       "matchStrings": [
         "^(?<currentValue>.+?)\\s*$"
       ],
-      "depNameTemplate": "llvm/llvm-project",
+      "depNameTemplate": "llvm-22",
+      "packageNameTemplate": "llvm/llvm-project",
       "datasourceTemplate": "github-tags",
       "extractVersionTemplate": "^llvmorg-(?<version>.+)$"
+    }
+  ],
+  "packageRules": [
+    {
+      "description": "The 22 line stays on 22.x. Not an automerge exception -- automerge is the family default (ship-if-green) and still applies; this only stops Renovate from walking the line onto an LLVM major it was never built for.",
+      "matchDepNames": [
+        "llvm-22"
+      ],
+      "allowedVersions": "<23"
     }
   ]
 }

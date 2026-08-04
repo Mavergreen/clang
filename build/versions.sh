@@ -10,7 +10,15 @@ export WORK="${MAVERICKS_WORK:-$HOME/.cache/mavericks-clang/work}"
 
 . "$REPO_ROOT/build/lib.sh"
 
-# Upstream LLVM is the Renovate-tracked UPSTREAM_VERSION (bare x.y.z). The full package version lives
+# A CLANG LINE (the LLVM major) is a product: clang-22 and a future clang-23 install side by side,
+# each with its own upstream file, prefixes and identifiers, so a clang-22 user is never carried onto
+# 23 unasked. Mirrors golang's GO_LINE / nodejs's NODE_LINE. upstream_version() reads whichever file
+# MAVERICKS_UPSTREAM_FILE names, so everything below derives from the line.
+export CLANG_LINE="${CLANG_LINE:-22}"
+export MAVERICKS_UPSTREAM_FILE="$REPO_ROOT/lines/$CLANG_LINE/UPSTREAM_VERSION"
+[ -f "$MAVERICKS_UPSTREAM_FILE" ] || { echo "versions.sh: no such line: lines/$CLANG_LINE" >&2; exit 1; }
+
+# Upstream LLVM is the Renovate-tracked lines/<line>/UPSTREAM_VERSION (bare x.y.z). The full package version lives
 # in VERSION (<upstream>-mavericks.N), which the release workflow writes and .gitignore excludes; before
 # a release is cut fall back to the computed auto version so a build never depends on a committed VERSION.
 export LLVM_VERSION="$(upstream_version)"
@@ -31,11 +39,18 @@ export LLVM_SIG_URL="${LLVM_SRC_URL}.sig"
 # this pin via the shared preset's `# mavericks-legacysupport` customManager (unquoted, marker on line).
 export MLS_VERSION=1.5.2-mavericks.2   # mavericks-legacysupport
 
-# The product: an arm64-hosted clang whose DEFAULT target is x86_64 Mavericks.
+# Both variants TARGET x86_64 Mavericks; they differ in what they RUN on.
+#   native — runs on x86_64 Mavericks (the flagship a Mavericks user installs); canonical prefix,
+#            and its pkg carries the 10.9.5 install floor.
+#   cross  — runs on modern arm64 and targets Mavericks; -cross suffix, no floor.
+# They never coexist on one machine. Identifiers mirror golang's
+# dev.modernmavericks.<repo>.<binary><line>[-cross] shape.
 export TARGET_TRIPLE="x86_64-apple-macos10.9"
 export MACOS_MIN="10.9"
-export PREFIX="/usr/local/mavericks-clang"      # cross variant install prefix
-export PKG_IDENTIFIER="dev.modernmavericks.clang"
+export NATIVE_PREFIX="/usr/local/mavericks-clang-${CLANG_LINE}"
+export CROSS_PREFIX="/usr/local/mavericks-clang-${CLANG_LINE}-cross"
+export NATIVE_IDENTIFIER="dev.modernmavericks.clang.clang${CLANG_LINE}"
+export CROSS_IDENTIFIER="dev.modernmavericks.clang.clang${CLANG_LINE}-cross"
 
 # shared-cmake scripts dir for the shell callers (SDK fetch, compat guard, productbuild, build-info).
 # mavericks-shared-cmake is a find_package package INSTALLED to a prefix and self-registered in

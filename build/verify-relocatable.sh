@@ -11,8 +11,14 @@
 #
 #   allowed: @rpath/@loader_path/@executable_path (relative by construction)
 #            /usr/lib/**, /System/**             (present on every macOS)
-#            $PREFIX/**                          (our own install location -- the pkg puts it there)
+#            $NATIVE_PREFIX/**, $CROSS_PREFIX/** (our own install locations -- the pkgs put us there)
 #   flagged: every other absolute path
+#
+# BOTH prefixes are allowed regardless of which variant is being audited. The alternative -- passing
+# in the one prefix that applies -- buys nothing (a native binary cannot legitimately reference the
+# cross prefix anyway, and the two are distinct paths) and costs a whole class of silent failure: a
+# caller that forgets to set it leaves the pattern empty, "" /* matches every absolute path, and the
+# gate passes everything while appearing to run.
 #
 #   usage: verify-relocatable.sh <prefix>
 set -eu
@@ -49,7 +55,7 @@ while IFS= read -r f; do
     case "$p" in
       @*|"") continue ;;                       # @rpath &c -- relative by construction
       /usr/lib/*|/System/*) continue ;;        # on every macOS
-      "$PREFIX"/*) continue ;;                 # where the pkg actually installs us
+      "$NATIVE_PREFIX"/*|"$CROSS_PREFIX"/*) continue ;;   # where the pkgs actually install us
       /*) hits="$hits$p
 " ;;
     esac
