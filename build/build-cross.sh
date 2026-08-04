@@ -153,6 +153,31 @@ echo "    target C++ runtime: $RTREL"
 # redistributed (Apple's bytes). clang.cfg references $CROSS_PREFIX/SDKs/MacOSX10.9.sdk relatively.
 cp "$MSC_SCRIPTS/fetch_sdk.sh" "$MSC_SCRIPTS/mavericks_fetch.sh" "$STAGE/libexec/"
 
+# -Wl,-U,__availability_version_check is a PRODUCT-level flag, not a build workaround. Any 10.9-targeted
+# program using @available/__builtin_available pulls compiler-rt's os_version_check.c.o, which
+# references that symbol. compiler-rt declares it __attribute__((weak_import)) and NULL-checks it
+# before use, falling back to parsing /System/Library/CoreServices/SystemVersion.plist -- precisely
+# because it is absent before macOS 10.15. But weak_import only gets the linker off the hook when some
+# library DECLARES the symbol, and the 10.9 SDK naturally does not, so ld64.lld fails the link outright:
+#
+#   ld64.lld: error: undefined symbol: _availability_version_check
+#   >>> referenced by libclang_rt.osx.a(os_version_check.c.o)
+#
+# -U names that one symbol as legitimately-undefined, restoring the behaviour compiler-rt was written
+# for. Scoped to a single symbol, and in the cfgs rather than this build alone so that USERS of either
+# toolchain get it too -- LLVM's own sources hit this, and so will anyone else's.
+#
+# MIND THE UNDERSCORES: -U takes the MACH-O symbol, which carries the leading underscore C symbols
+# get, so the C name `_availability_version_check` is `__availability_version_check` here. lld's
+# diagnostic prints the C spelling, so copying the name out of the error message yields a -U that
+# matches nothing and silently does not fix the link. `nm -m` on the archive member is what settles it.
+#
+# NOT -undefined dynamic_lookup, which also links but switches OFF undefined-symbol checking for the
+# whole binary -- a real missing symbol would then ship and fail at launch. The reference is already
+# `weak external` in the object (compiler-rt declares it __attribute__((weak_import))), so with -U it
+# stays weak and dynamically-looked-up: 10.9's dyld binds it to NULL, compiler-rt's own NULL check
+# fires, and the plist path runs. Verified on a built binary, not assumed.
+#
 # clang.cfg / clang++.cfg -- ported from native-bootstrap/build.sh wire_clang22, retargeted to
 # x86_64/10.9. clang >= 12 auto-loads <driver>.cfg from its own bin dir, so the polyfill applies with
 # zero per-project flags. Wired the NON-INVASIVE way: -isystem header shadows (which #include_next the
@@ -166,6 +191,7 @@ printf '%s\n' \
   '-isystem <CFGDIR>/../include/mavericks-compat' \
   '-isystem <CFGDIR>/../include/LegacySupport' \
   '-Wl,-dead_strip_dylibs' \
+  '-Wl,-U,__availability_version_check' \
   '<CFGDIR>/../lib/libMacportsLegacySupport.a' \
   '-lobjc' '-framework CoreFoundation' '-framework Security' '-framework CoreServices' \
   > "$STAGE/bin/clang.cfg"
@@ -181,6 +207,7 @@ printf '%s\n' \
   '-isystem <CFGDIR>/../include/mavericks-compat' \
   '-isystem <CFGDIR>/../include/LegacySupport' \
   '-nostdlib++' \
+  '-Wl,-U,__availability_version_check' \
   '<CFGDIR>/../lib/libMacportsLegacySupport.a' \
   '-lobjc' '-framework CoreFoundation' '-framework Security' '-framework CoreServices' \
   '--ld-path=<CFGDIR>/portable-ld' \
