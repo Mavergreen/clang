@@ -9,7 +9,7 @@ set -eu
 HERE="$(cd "$(dirname "$0")" && pwd)"
 . "$HERE/versions.sh"
 : "${MSC_SCRIPTS:?mavericks-shared-cmake not found; install it -- see its README}"
-JOBS="$(sysctl -n hw.ncpu 2>/dev/null || echo 4)"
+JOBS="$(mavericks_build_jobs)"
 
 STAGE="$WORK/stage$CROSS_PREFIX"          # DESTDIR-style staging at the install prefix
 SRC="$WORK/llvm-project-$LLVM_VERSION.src"

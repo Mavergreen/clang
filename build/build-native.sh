@@ -14,7 +14,7 @@ set -eu
 HERE="$(cd "$(dirname "$0")" && pwd)"
 . "$HERE/versions.sh"
 : "${MSC_SCRIPTS:?mavericks-shared-cmake not found; install it -- see its README}"
-JOBS="$(sysctl -n hw.ncpu 2>/dev/null || echo 4)"
+JOBS="$(mavericks_build_jobs)"
 
 CROSS_STAGE="$WORK/stage$CROSS_PREFIX"
 [ -x "$CROSS_STAGE/bin/clang" ] || { echo "FATAL: run build-cross.sh first (need $CROSS_STAGE/bin/clang)" >&2; exit 1; }
