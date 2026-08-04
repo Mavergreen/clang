@@ -13,8 +13,8 @@ REPO_ROOT="$ROOT"; export REPO_ROOT
 # happens to have installed. Keying on the real ccache would silently skip the requested-and-available
 # case on any box without it -- which is the ONLY case CI ever takes, so it is the one that must not
 # go untested. The helper probes with `command -v`, so a stub is indistinguishable from the real thing.
-_stub="$(mktemp -d)"; printf '#!/bin/sh\nexit 0\n' > "$_stub/ccache"; chmod +x "$_stub/ccache"
-_empty="$(mktemp -d)"
+_stub="$(mktemp -d "${TMPDIR:-/tmp}/mavci.XXXXXX")"; printf '#!/bin/sh\nexit 0\n' > "$_stub/ccache"; chmod +x "$_stub/ccache"
+_empty="$(mktemp -d "${TMPDIR:-/tmp}/mavci.XXXXXX")"
 case "$(PATH="$_stub:$PATH" MAVERICKS_USE_CCACHE=1 mav_ccache_args)" in
   *-DCMAKE_C_COMPILER_LAUNCHER=ccache*) : ;;
   *) echo "FAIL: ccache args missing when requested and available"; rm -rf "$_stub" "$_empty"; exit 1 ;;
