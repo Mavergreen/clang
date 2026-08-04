@@ -92,6 +92,20 @@ jobs:
       - name: Package the cross .pkg + build-info
         run: sh build/package-cross-pkg.sh
 
+      # The native variant is cross-HOSTED using the cross toolchain just built above as its compiler,
+      # so this step must follow the cross build -- an intentional bootstrap ordering, not a hidden
+      # coupling. Nothing x86_64 executes on the arm64 runner during it.
+      - name: Cross-host the native toolchain (x86_64/10.9)
+        run: sh build/build-native.sh
+
+      # Relocatability + the compat guard on the native HOST binaries -- the check the cross variant
+      # could not run, since its host tools are arm64 by design. Rosetta smoke inside is non-gating.
+      - name: Native host-binary compat guard + Rosetta smoke
+        run: sh tests/smoke-native.sh
+
+      - name: Package the native .pkg (10.9.5 floor) + build-info
+        run: sh build/package-native-pkg.sh
+
       - name: Stage release notes (travels in the artifact)
         run: |
           set -eu
