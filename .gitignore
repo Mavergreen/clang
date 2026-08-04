@@ -1,0 +1,25 @@
+# Not committed: brainstorm/spec/plan docs and other non-code notes (tracked out-of-band)
+docs/
+.superpowers/
+
+# Build outputs / fetched inputs. Heavy build I/O (WORK) defaults to a LOCAL disk
+# (~/.cache/mavericks-clang/work), OUTSIDE this NFS repo — see build/versions.sh.
+# build/work/ is kept only in case WORK is ever overridden back into the tree.
+# NEVER ignore build/ itself: the committed version wrappers (build/version.sh, msc.sh,
+# lib.sh, versions.sh, build-cross.sh, …) live there. check-family-conventions.sh 7c gates this.
+build/work/
+/dist/
+/archives/
+/toolchains/
+/out/
+*.pkg
+*.tar.gz
+*.tar.xz
+
+# Full package version (<upstream>-mavericks.N). Workflow-written by release.yml (or a
+# local `sh build/version.sh` run) — not committed. See build/version.sh, build/lib.sh.
+/VERSION
+
+# macOS cruft (._* is what an NFS mount sprays when COPYFILE_DISABLE is unset)
+.DS_Store
+._*

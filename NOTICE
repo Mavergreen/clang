@@ -1,0 +1,27 @@
+ModernMavericks/clang
+
+This repository builds and republishes a Clang/LLVM toolchain for Mavericks.
+It ships one kind of artifact:
+
+1. mavericks-clang-cross-*.pkg
+   A clang/LLVM toolchain that RUNS on modern Apple-Silicon macOS and TARGETS
+   Mac OS X 10.9 (x86_64) out of the box. Built from source from the pinned
+   llvm/llvm-project release tarball (see UPSTREAM_VERSION), which is
+   GPG-verified against the vendored LLVM release-signer key. Licensed
+   Apache-2.0 WITH LLVM-exception.
+   Upstream: https://github.com/llvm/llvm-project
+
+The .pkg also bakes in the macports-legacy-support static shim
+(libMacportsLegacySupport.a plus its wrapper headers), which back-fills
+newer-than-10.9 libc/libSystem APIs so a 10.9-targeted binary links. It is
+consumed as a prebuilt artifact from ModernMavericks/macports-legacy-support,
+itself a port of https://github.com/macports/macports-legacy-support
+(BSD-3-Clause). The pin lives in build/versions.sh; see INGREDIENTS.md.
+
+The Apple MacOSX10.9 SDK is NOT redistributed here. It is fetched at build
+time (and, for an installed toolchain, at first use) by mavericks-shared-cmake's
+fetch_sdk.sh, and remains subject to Apple's own license.
+
+native-bootstrap/ contains Wowfunhappy's original on-10.9 bootstrap scripts
+(build.sh, make.sh, lldb.sh, debugserver-shim.py), preserved unchanged for a
+future local-Mavericks build phase. They are not used by CI.
