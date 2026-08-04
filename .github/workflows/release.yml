@@ -1,0 +1,124 @@
+name: release
+
+# Cross variant: a clang that runs on modern arm64 and targets macOS 10.9, cross-built here.
+# Tag-only publish: build + compat-gate on every push/PR; publish only on a *-mavericks.* tag.
+# No 10.9 runner anywhere; the compat guard + emitted-binary smoke are the in-CI equivalence proof.
+
+on:
+  push:
+    branches: [main]
+    tags: ['*-mavericks.*']
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      local_release:
+        description: "Cut a local -mavericks.(N+1) repackage for the current upstream"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+# Dispatches share ONE group so two of them (a manual cut racing the ingredient-bump auto-repackage)
+# cannot each compute -mavericks.(N+1) from the same tags and collide. Never keyed on github.run_id,
+# which would make every run its own group and the whole block a no-op.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name == 'workflow_dispatch' && 'local_release' || github.ref }}
+  cancel-in-progress: ${{ github.event_name != 'workflow_dispatch' }}
+
+jobs:
+  build:
+    runs-on: macos-26   # Apple Silicon (arm64); use macos-15 if 26 unavailable
+    timeout-minutes: 180
+    outputs:
+      version: ${{ steps.ver.outputs.full }}
+      release: ${{ steps.ver.outputs.release }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0   # version.sh counts existing <upstream>-mavericks.* tags
+
+      - name: Install mavericks-shared-cmake
+        uses: ModernMavericks/shared-cmake/.github/actions/install@v1
+
+      # build-cross.sh GPG-verifies the LLVM source tarball -- that signature is what lets a Renovate
+      # bump of UPSTREAM_VERSION be self-contained, so a runner image without gpg would quietly turn
+      # the whole scheme into a hard failure at the worst moment. Install it if it is not there.
+      - name: Ensure gpg (verifies the LLVM source tarball)
+        run: command -v gpg >/dev/null 2>&1 || brew install gnupg
+
+      - name: Resolve version (force no-publish off main/non-tag)
+        id: ver
+        run: |
+          set -eu
+          if [ "$GITHUB_REF_TYPE" = tag ]; then
+            full="$GITHUB_REF_NAME"; rel=yes
+          else
+            mode="$(sh "$MSC_SCRIPTS/release-mode.sh")"
+            out="$(sh build/version.sh "$mode")"
+            full="$(printf '%s\n' "$out" | sed -n 's/^FULL=//p')"
+            rel="$(printf '%s\n' "$out" | sed -n 's/^RELEASE=//p')"
+            [ "$GITHUB_REF_NAME" = main ] || rel=no
+          fi
+          printf '%s\n' "$full" > VERSION
+          { echo "full=$full"; echo "release=$rel"; } >> "$GITHUB_OUTPUT"
+          echo "version=$full publish=$rel"
+        env:
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
+          LOCAL_RELEASE: ${{ inputs.local_release }}
+
+      - name: Run the repo's tests (compat/smoke SKIP until built)
+        run: sh "$MSC_SCRIPTS/run-repo-tests.sh"
+
+      - name: Guard the ingredient pin declaration
+        run: sh "$MSC_SCRIPTS/check-ingredient-pins.sh"
+
+      - name: Cross-build the toolchain
+        run: sh build/build-cross.sh
+
+      # REPO_ROOT is preset because versions.sh derives it from $0, and $0 in a workflow step is the
+      # runner's temp script, not this repo.
+      - name: Relocatability gate
+        run: |
+          set -eu
+          REPO_ROOT="$PWD"; export REPO_ROOT
+          . ./build/versions.sh
+          sh build/verify-relocatable.sh "$WORK/stage$PREFIX"
+
+      - name: Compat gate + emitted-binary smoke
+        run: sh tests/smoke-target.sh
+
+      - name: Package the cross .pkg + build-info
+        run: sh build/package-cross-pkg.sh
+
+      - name: Stage release notes (travels in the artifact)
+        run: |
+          set -eu
+          VER="${{ steps.ver.outputs.full }}"
+          NOTES="$(sh build/release-notes-file.sh "$VER" "$VER")"
+          cp "$NOTES" dist/RELEASE_NOTES.md
+
+      - name: Artifact conformance
+        if: github.ref_type == 'tag'
+        run: |
+          sh "$MSC_SCRIPTS/artifact-facts.sh" dist "${{ steps.ver.outputs.full }}" \
+            | sh "$MSC_SCRIPTS/check-artifact-conformance.sh"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: mavericks-clang
+          path: |
+            dist/*.pkg
+            dist/RELEASE_NOTES.md
+            dist/build-info-*.txt
+
+  publish:
+    needs: [build]
+    if: github.ref_type == 'tag'
+    permissions:
+      contents: write
+    uses: ModernMavericks/shared-cmake/.github/workflows/publish-release.yml@v1
+    with:
+      version: ${{ needs.build.outputs.version }}
+      artifact: mavericks-clang

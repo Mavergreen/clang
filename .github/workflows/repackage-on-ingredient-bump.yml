@@ -1,0 +1,25 @@
+name: repackage-on-ingredient-bump
+
+# When the legacy-support pin in build/versions.sh is bumped by Renovate, dispatch a
+# -mavericks.(N+1) repackage via the shared reusable workflow -- release.yml's workflow_dispatch
+# local_release path cuts and publishes inline. UPSTREAM_VERSION (own upstream, LLVM) is the N=1
+# path handled by release.yml on push-to-main, so it is excluded here.
+#
+# This file is also the SOURCE OF TRUTH for "what are this repo's ingredients": ingredient-pins.sh
+# derives the list from these paths minus own-upstream-paths, so the repackage trigger and the
+# release notes cannot drift apart. check-ingredient-pins.sh fails the build if a path here expands
+# to nothing tracked.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - build/versions.sh    # the legacysupport shim pin (MLS_VERSION)
+
+jobs:
+  repackage:
+    permissions:
+      actions: write
+    uses: ModernMavericks/shared-cmake/.github/workflows/repackage-on-ingredient-bump.yml@v1
+    with:
+      own-upstream-paths: UPSTREAM_VERSION
