@@ -55,6 +55,7 @@ echo "==> 3. cross-configure the HOST tools (clang;lld) as x86_64/10.9"
 NATIVE_BLD="$WORK/native-build"
 rm -rf "$NATIVE_BLD"
 cmake -G Ninja -S "$SRC/llvm" -B "$NATIVE_BLD" \
+  $(mav_ccache_args) \
   -DCMAKE_BUILD_TYPE=Release \
   -DCMAKE_INSTALL_PREFIX="$NATIVE_PREFIX" \
   -DCMAKE_C_COMPILER="$CROSS_STAGE/bin/clang" -DCMAKE_CXX_COMPILER="$CROSS_STAGE/bin/clang++" \
@@ -74,7 +75,7 @@ cmake -G Ninja -S "$SRC/llvm" -B "$NATIVE_BLD" \
   -DCLANG_DEFAULT_LINKER=lld -DCLANG_DEFAULT_CXX_STDLIB=libc++
 
 echo "==> 4. build + install host tools into the native staging prefix"
-ninja -C "$NATIVE_BLD" -j "$JOBS"
+mav_ninja -C "$NATIVE_BLD" -j "$JOBS"
 rm -rf "$WORK/stage-native"; DESTDIR="$WORK/stage-native" ninja -C "$NATIVE_BLD" install
 STAGE="$WORK/stage-native$NATIVE_PREFIX"
 [ -x "$STAGE/bin/clang" ] || { echo "FATAL: native clang not installed at $STAGE/bin/clang" >&2; exit 1; }

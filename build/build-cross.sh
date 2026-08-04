@@ -91,6 +91,7 @@ RUNTIME_TARGET="x86_64-apple-darwin"
 RC="-isystem $HERE/shim/include -isystem $LEGACY_INC/LegacySupport -include $HERE/shim/aligned_alloc.h -fno-jump-tables"
 rm -rf "$BLD"
 cmake -G Ninja -S "$SRC/llvm" -B "$BLD" \
+  $(mav_ccache_args) \
   -DCMAKE_BUILD_TYPE=Release \
   -DCMAKE_INSTALL_PREFIX="$CROSS_PREFIX" \
   -DCMAKE_C_COMPILER=/usr/bin/clang -DCMAKE_CXX_COMPILER=/usr/bin/clang++ \
@@ -125,7 +126,7 @@ cmake -G Ninja -S "$SRC/llvm" -B "$BLD" \
   "-DRUNTIMES_${RUNTIME_TARGET}_DARWIN_macosx_CACHED_SYSROOT=$SDK"
 
 echo "==> 4. build + install into staging"
-ninja -C "$BLD" -j "$JOBS"
+mav_ninja -C "$BLD" -j "$JOBS"
 rm -rf "$WORK/stage"; DESTDIR="$WORK/stage" ninja -C "$BLD" install
 
 echo "==> 5. assemble: legacy-support + clang.cfg (default target = x86_64 Mavericks)"
