@@ -7,7 +7,9 @@ REPO_ROOT="$ROOT"; export REPO_ROOT
 
 # --- mav_ccache_args: empty unless requested AND available -------------------------------------
 [ -z "$(MAVERICKS_USE_CCACHE= mav_ccache_args)" ] || { echo "FAIL: ccache args leaked when unset"; exit 1; }
-[ -z "$(mav_ccache_args)" ] || { echo "FAIL: ccache args leaked when var absent entirely"; exit 1; }
+# Unset explicitly rather than trusting the ambient env: CI (and run-repo-tests under it) exports
+# MAVERICKS_USE_CCACHE=1 job-wide, so a test of the *absent* case must control the var itself.
+[ -z "$(unset MAVERICKS_USE_CCACHE; mav_ccache_args)" ] || { echo "FAIL: ccache args leaked when var absent entirely"; exit 1; }
 
 # Both remaining branches are driven off a controlled PATH rather than off whatever this machine
 # happens to have installed. Keying on the real ccache would silently skip the requested-and-available
@@ -41,8 +43,9 @@ rc=0; MAVERICKS_BUILD_DEADLINE=1 mav_ninja --version >/dev/null 2>&1 || rc=$?
 if command -v ninja >/dev/null 2>&1; then
   rc=0; MAVERICKS_BUILD_DEADLINE=$(( $(date +%s) + 3600 )) mav_ninja --version >/dev/null 2>&1 || rc=$?
   [ "$rc" -eq 0 ] || { echo "FAIL: live deadline should run ninja and succeed, got $rc"; exit 1; }
-  # ...and with no deadline at all, the plain path.
-  rc=0; mav_ninja --version >/dev/null 2>&1 || rc=$?
+  # ...and with no deadline at all, the plain path. Unset explicitly: CI stamps a job-wide
+  # MAVERICKS_BUILD_DEADLINE before run-repo-tests, so the plain path must clear it itself.
+  rc=0; ( unset MAVERICKS_BUILD_DEADLINE; mav_ninja --version >/dev/null 2>&1 ) || rc=$?
   [ "$rc" -eq 0 ] || { echo "FAIL: unbounded mav_ninja should succeed, got $rc"; exit 1; }
 else
   echo "note: ninja absent -- skipped the live-deadline assertions"
