@@ -75,7 +75,7 @@ cmake -G Ninja -S "$SRC/llvm" -B "$NATIVE_BLD" \
   -DCLANG_DEFAULT_LINKER=lld -DCLANG_DEFAULT_CXX_STDLIB=libc++
 
 echo "==> 4. build + install host tools into the native staging prefix"
-mav_ninja -C "$NATIVE_BLD" -j "$JOBS"
+ninja -C "$NATIVE_BLD" -j "$JOBS"
 rm -rf "$WORK/stage-native"; DESTDIR="$WORK/stage-native" ninja -C "$NATIVE_BLD" install
 STAGE="$WORK/stage-native$NATIVE_PREFIX"
 [ -x "$STAGE/bin/clang" ] || { echo "FATAL: native clang not installed at $STAGE/bin/clang" >&2; exit 1; }

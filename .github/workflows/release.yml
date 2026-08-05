@@ -29,12 +29,6 @@ concurrency:
   cancel-in-progress: ${{ github.event_name != 'workflow_dispatch' }}
 
 env:
-  # THE single knob for build time. It is stamped into MAVERICKS_BUILD_DEADLINE, which mav_ninja
-  # enforces, so the build self-limits under whatever budget is set rather than assuming any
-  # particular platform cap. Each job's timeout-minutes is this + ~25min of margin (ccache save,
-  # packaging, upload) and must stay under GitHub's hard cap; job-level timeout-minutes cannot read
-  # the env context, so 355 is written out below and the two move together.
-  JOB_BUDGET_MIN: "330"
   # Fixed, deterministic scratch dir OUTSIDE the checkout, so the cross job's staged toolchain lands
   # exactly where build-native.sh (which derives WORK from this) looks for it after the handoff.
   MAVERICKS_WORK: ${{ github.workspace }}/../mav-work
@@ -43,7 +37,7 @@ env:
 jobs:
   build-cross:
     runs-on: macos-26   # Apple Silicon (arm64); use macos-15 if 26 unavailable
-    timeout-minutes: 355   # = JOB_BUDGET_MIN + margin; see the env block
+    timeout-minutes: 355   # safety cap, under GitHub's 360-minute hard limit
     outputs:
       version: ${{ steps.ver.outputs.full }}
     steps:
@@ -80,11 +74,6 @@ jobs:
           GITHUB_EVENT_NAME: ${{ github.event_name }}
           LOCAL_RELEASE: ${{ inputs.local_release }}
 
-      # Stamped at the FIRST opportunity so the budget covers checkout, fetch and configure, not just
-      # compile -- the deadline is absolute, not "N minutes of ninja".
-      - name: Stamp build deadline
-        run: echo "MAVERICKS_BUILD_DEADLINE=$(( $(date +%s) + ${JOB_BUDGET_MIN} * 60 ))" >> "$GITHUB_ENV"
-
       - name: Restore ccache (cross)
         uses: actions/cache@v4
         with:
@@ -97,18 +86,17 @@ jobs:
           sh "$MSC_SCRIPTS/run-repo-tests.sh"
           sh "$MSC_SCRIPTS/check-ingredient-pins.sh"
 
-      - name: Cross-build the toolchain (ccache + deadline-bounded)
+      - name: Cross-build the toolchain (ccache)
         run: sh build/build-cross.sh
 
-      # If mav_ninja hit the budget it returns 75 and build-cross.sh aborts before installing, so this
-      # is what turns "no staged toolchain" into an actionable message. actions/cache still saves in
-      # its post step on a failed job, so a re-run resumes warm.
-      - name: "Assert the build completed (else: ccache saved, re-run to resume)"
+      # A defence-in-depth guard: build-cross.sh runs under `set -e`, so a failed build already fails
+      # the job, but this turns a subtly-empty stage into a clear message before the later steps.
+      - name: Assert the toolchain was staged
         run: |
           set -eu
           REPO_ROOT="$PWD"; export REPO_ROOT; . ./build/versions.sh
           [ -x "$MAVERICKS_WORK/stage$CROSS_PREFIX/bin/clang" ] \
-            || { echo "::error::cross build INCOMPLETE (hit the budget). ccache is saved; re-run this job to resume."; exit 1; }
+            || { echo "::error::cross build produced no staged clang"; exit 1; }
 
       - name: Relocatability gate
         run: |
@@ -156,7 +144,13 @@ jobs:
   build-native:
     needs: build-cross
     runs-on: macos-26
-    timeout-minutes: 355   # = JOB_BUDGET_MIN + margin; see the env block
+    timeout-minutes: 355   # safety cap, under GitHub's 360-minute hard limit
+    # The native build's compiler is the freshly-built cross clang, whose binary differs every run, so
+    # ccache's default (mtime/content) check treats it as a NEW compiler and misses on everything. Key
+    # the compiler on its --version string instead -- stable for a given LLVM version, invalidated by a
+    # bump -- so the native build gets cache hits like the cross build does.
+    env:
+      CCACHE_COMPILERCHECK: "%compiler% --version"
     steps:
       - uses: actions/checkout@v7
         with: { fetch-depth: 0 }
@@ -187,9 +181,6 @@ jobs:
           tar -C "$MAVERICKS_WORK" -xf cross-handoff.tar
           cd "$MAVERICKS_WORK" && tar -xf llvm-project-*.src.tar.xz
 
-      - name: Stamp build deadline
-        run: echo "MAVERICKS_BUILD_DEADLINE=$(( $(date +%s) + ${JOB_BUDGET_MIN} * 60 ))" >> "$GITHUB_ENV"
-
       - name: Restore ccache (native)
         uses: actions/cache@v4
         with:
@@ -200,12 +191,12 @@ jobs:
       - name: Cross-host the native toolchain (x86_64/10.9)
         run: sh build/build-native.sh
 
-      - name: Assert the native build completed
+      - name: Assert the native toolchain was staged
         run: |
           set -eu
           REPO_ROOT="$PWD"; export REPO_ROOT; . ./build/versions.sh
           [ -x "$MAVERICKS_WORK/stage-native$NATIVE_PREFIX/bin/clang" ] \
-            || { echo "::error::native build INCOMPLETE (hit the budget). ccache saved; re-run to resume."; exit 1; }
+            || { echo "::error::native build produced no staged clang"; exit 1; }
 
       # Relocatability + the compat guard on the native HOST binaries -- the check the cross variant
       # cannot run, its host tools being arm64 by design. The Rosetta step inside is non-gating for

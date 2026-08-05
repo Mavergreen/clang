@@ -126,7 +126,7 @@ cmake -G Ninja -S "$SRC/llvm" -B "$BLD" \
   "-DRUNTIMES_${RUNTIME_TARGET}_DARWIN_macosx_CACHED_SYSROOT=$SDK"
 
 echo "==> 4. build + install into staging"
-mav_ninja -C "$BLD" -j "$JOBS"
+ninja -C "$BLD" -j "$JOBS"
 rm -rf "$WORK/stage"; DESTDIR="$WORK/stage" ninja -C "$BLD" install
 
 echo "==> 5. assemble: legacy-support + clang.cfg (default target = x86_64 Mavericks)"

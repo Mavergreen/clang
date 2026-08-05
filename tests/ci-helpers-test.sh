@@ -29,26 +29,4 @@ esac
   || { echo "FAIL: ccache args emitted though ccache is not on PATH"; rm -rf "$_stub" "$_empty"; exit 1; }
 rm -rf "$_stub" "$_empty"
 
-# --- mav_ninja: an expired deadline yields the incomplete sentinel without running ninja ---------
-# `rc=0; cmd || rc=$?`, never `cmd; rc=$?`: under set -e the bare form exits this script at the
-# failing command and the assertion below never runs -- the exact trap shared-cmake's
-# run-repo-tests.sh documents.
-rc=0; MAVERICKS_BUILD_DEADLINE=1 mav_ninja --version >/dev/null 2>&1 || rc=$?
-[ "$rc" -eq 75 ] || { echo "FAIL: expired deadline should return 75, got $rc"; exit 1; }
-
-# --- mav_ninja: a LIVE deadline must actually run ninja and succeed ------------------------------
-# This is the case that catches a bounding mechanism which does not exist on this platform: macOS
-# ships no timeout(1), so an implementation that shells out to it returns 127 -> 75 and reports every
-# build "INCOMPLETE (hit the budget)" when nothing of the sort happened.
-if command -v ninja >/dev/null 2>&1; then
-  rc=0; MAVERICKS_BUILD_DEADLINE=$(( $(date +%s) + 3600 )) mav_ninja --version >/dev/null 2>&1 || rc=$?
-  [ "$rc" -eq 0 ] || { echo "FAIL: live deadline should run ninja and succeed, got $rc"; exit 1; }
-  # ...and with no deadline at all, the plain path. Unset explicitly: CI stamps a job-wide
-  # MAVERICKS_BUILD_DEADLINE before run-repo-tests, so the plain path must clear it itself.
-  rc=0; ( unset MAVERICKS_BUILD_DEADLINE; mav_ninja --version >/dev/null 2>&1 ) || rc=$?
-  [ "$rc" -eq 0 ] || { echo "FAIL: unbounded mav_ninja should succeed, got $rc"; exit 1; }
-else
-  echo "note: ninja absent -- skipped the live-deadline assertions"
-fi
-
 echo "OK ci-helpers-test"
