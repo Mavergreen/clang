@@ -70,11 +70,13 @@ and `identifier` are the keys that are supposed to differ.
 
 ## Conformance deviations
 
-- **floor:mavericks-clang-\*-cross-\*.pkg** — this variant RUNS on modern macOS and only TARGETS 10.9,
-  so it declares no 10.9.5 install floor (golang cross-pkg precedent). The **native** pkg's 10.9.5
-  floor is the mirror of this and is a requirement, not a deviation — it is listed above, not here.
-- **updater:mavericks-clang-\*.pkg** — no Sparkle updater in this phase for either variant
-  (swift-toolchain precedent for a heavy dev toolchain); a later phase adds one feed per line.
-- **sdk:not-redistributed** — the Apple MacOSX10.9 SDK is not baked into the artifact. The pkg ships
-  `libexec/fetch_sdk.sh` and the SDK is fetched at first use (golang precedent + redistribution
-  cleanliness).
+Machine-read by `artifact-facts.sh` as `- <check>:<glob> : <reason>` (one line each, plain glob):
+
+- floor:mavericks-clang-*-cross-*.pkg : cross variant runs on modern macOS and only targets 10.9, so it declares no 10.9.5 install floor (golang cross-pkg precedent); its minimum system version moves into the Sparkle appcast once the updater lands (deferred this phase). The native pkg's 10.9.5 floor is a requirement, not a deviation.
+
+## Deferred from family conventions (not artifact-conformance checks)
+
+- **No Sparkle updater yet**, either variant — swift-toolchain precedent for a heavy dev toolchain. A
+  later phase adds one appcast feed per line, which also retires the floor deviation above.
+- **SDK not redistributed** — the Apple MacOSX10.9 SDK is not baked into the artifact. The pkg ships
+  `libexec/fetch_sdk.sh` and fetches on first use (golang precedent + redistribution cleanliness).
