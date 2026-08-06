@@ -27,6 +27,29 @@ OUT="$STAGING_OUT/$NAME"
 rm -rf "$STAGE/SDKs"; mkdir -p "$STAGE/SDKs"
 [ -z "$(ls -A "$STAGE/SDKs" 2>/dev/null)" ] || { echo "FATAL: $STAGE/SDKs is not empty" >&2; exit 1; }
 
+# Stage the Sparkle updater .app, its daily-check LaunchAgent and the postinstall that loads the
+# agent, via the shared helper. UPD_APP is exported by release.yml's updater build step. With no
+# updater built, package the toolchain alone (a local toolchain-only build still works) -- but then
+# REMOVE whatever a previous run staged: $PAYLOAD persists between runs, so a leftover .app would
+# ship silently, announcing a version it is not.
+UPD_APP="${UPD_APP:-}"
+UPD_DIR="/Library/Application Support/ModernMavericks"
+UPD_LABEL="dev.modernmavericks.ClangCrossUpdater-updatecheck"
+set --                        # build_component_pkg.sh gets --scripts only when there IS a postinstall
+if [ -n "$UPD_APP" ] && [ -d "$UPD_APP" ]; then
+  scr="$STAGING_OUT/pkg-scripts-cross"; rm -rf "$scr"; mkdir -p "$scr"
+  sh "$MSC_SCRIPTS/stage_updater.sh" \
+    --stage "$PAYLOAD" \
+    --app "$UPD_APP" \
+    --app-dir "$UPD_DIR" \
+    --agent-label "$UPD_LABEL" \
+    --scripts-out "$scr"
+  set -- --scripts "$scr"
+else
+  echo ">> WARNING: no updater at '$UPD_APP'; packaging the toolchain alone (build it: cmake --build build/updater-cross --target ClangCrossUpdater)" >&2
+  rm -rf "$PAYLOAD$UPD_DIR" "$PAYLOAD/Library/LaunchAgents/$UPD_LABEL.plist"
+fi
+
 # AppleDouble sidecars are what an NFS-hosted stage sprays; they would ship as real payload files.
 find "$PAYLOAD" -name '._*' -delete 2>/dev/null || true
 
@@ -35,6 +58,7 @@ pkg="$(sh "$MSC_SCRIPTS/build_component_pkg.sh" \
   --identifier "$CROSS_IDENTIFIER" \
   --version "$VER" \
   --install-location "/" \
+  "$@" \
   --out "$OUT")"
 mv "$pkg" "$DIST/$NAME"
 rm -f "$STAGING_OUT/$(basename "$NAME" .pkg)-components.plist"

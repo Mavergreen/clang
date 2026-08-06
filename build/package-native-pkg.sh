@@ -23,6 +23,30 @@ OUTDIR="$WORK/out"; mkdir -p "$OUTDIR"
 # build-machine path ships. verify-relocatable.sh audits Mach-O only and would not see a symlink.
 rm -rf "$STAGE/SDKs"; mkdir -p "$STAGE/SDKs"
 [ -z "$(ls -A "$STAGE/SDKs" 2>/dev/null)" ] || { echo "FATAL: $STAGE/SDKs is not empty" >&2; exit 1; }
+
+# Stage the Sparkle updater .app, its daily-check LaunchAgent and the postinstall that loads the
+# agent, via the shared helper. UPD_APP is exported by release.yml's updater build step. With no
+# updater built, package the toolchain alone (a local toolchain-only build still works) -- but then
+# REMOVE whatever a previous run staged: $PAYLOAD persists between runs, so a leftover .app would
+# ship silently, announcing a version it is not.
+UPD_APP="${UPD_APP:-}"
+UPD_DIR="/Library/Application Support/ModernMavericks"
+UPD_LABEL="dev.modernmavericks.ClangUpdater-updatecheck"
+set --                        # build_component_pkg.sh gets --scripts only when there IS a postinstall
+if [ -n "$UPD_APP" ] && [ -d "$UPD_APP" ]; then
+  scr="$OUTDIR/pkg-scripts-native"; rm -rf "$scr"; mkdir -p "$scr"
+  sh "$MSC_SCRIPTS/stage_updater.sh" \
+    --stage "$PAYLOAD" \
+    --app "$UPD_APP" \
+    --app-dir "$UPD_DIR" \
+    --agent-label "$UPD_LABEL" \
+    --scripts-out "$scr"
+  set -- --scripts "$scr"
+else
+  echo ">> WARNING: no updater at '$UPD_APP'; packaging the toolchain alone (build it: cmake --build build/updater --target ClangUpdater)" >&2
+  rm -rf "$PAYLOAD$UPD_DIR" "$PAYLOAD/Library/LaunchAgents/$UPD_LABEL.plist"
+fi
+
 find "$PAYLOAD" -name '._*' -delete 2>/dev/null || true
 
 comp="$OUTDIR/mavericks-clang-${CLANG_LINE}-native-component.pkg"
@@ -31,6 +55,7 @@ sh "$MSC_SCRIPTS/build_component_pkg.sh" \
   --identifier "$NATIVE_IDENTIFIER" \
   --version "$VER" \
   --install-location "/" \
+  "$@" \
   --out "$comp" >/dev/null
 
 sh "$MSC_SCRIPTS/set_install_floor.sh" \
