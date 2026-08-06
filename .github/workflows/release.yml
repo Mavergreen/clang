@@ -107,8 +107,26 @@ jobs:
       - name: Compat gate + emitted-binary smoke
         run: sh tests/smoke-target.sh
 
+      # A small Cocoa/ObjC build (no LLVM), so it rides in this job rather than paying for its own.
+      # The arm64 Sparkle slice is derived from the updater's CMAKE_OSX_ARCHITECTURES by
+      # mavericks_add_updater_app -- nothing here hand-plumbs a framework path.
+      - name: Build the cross Sparkle updater (arm64/11)
+        run: |
+          set -eu
+          cmake -S . -B build/updater-cross -DCLANG_VARIANT=cross \
+            -DMAVERICKS_ALLOW_GENERIC_ICON=ON -DCMAKE_OBJC_COMPILER=/usr/bin/clang
+          cmake --build build/updater-cross --target ClangCrossUpdater
+          # Self-update circularity: an updater that linked the toolchain it replaces could not run
+          # while replacing it. Cocoa + Sparkle only.
+          # `sed 1d` drops otool's header line, which is the binary's OWN PATH -- grepping it too
+          # makes the gate fail whenever the build directory happens to be named after the product
+          # (it did, locally, under ~/.cache/mavericks-clang/work). Dependencies only.
+          otool -L build/updater-cross/ClangCrossUpdater.app/Contents/MacOS/ClangCrossUpdater | tee /tmp/o-all.txt | sed 1d > /tmp/o.txt
+          cat /tmp/o-all.txt
+          ! grep -qiE 'mavericks-clang' /tmp/o.txt || { echo "::error::cross updater links the toolchain"; exit 1; }
+
       - name: Package the cross .pkg + build-info
-        run: sh build/package-cross-pkg.sh
+        run: UPD_APP="$PWD/build/updater-cross/ClangCrossUpdater.app" sh build/package-cross-pkg.sh
 
       - name: Upload cross artifacts (pkg + build-info)
         uses: actions/upload-artifact@v7
@@ -204,8 +222,22 @@ jobs:
       - name: Native host-binary compat guard + Rosetta smoke
         run: sh tests/smoke-native.sh
 
+      # x86_64/min-10.9, because this updater RUNS on the 10.9 box it updates. Built by the runner's
+      # Apple clang against the modern SDK -- Cocoa/Sparkle only, so it needs none of the 10.9 SDK
+      # back-fills the toolchain build does.
+      - name: Build the native Sparkle updater (x86_64/10.9)
+        run: |
+          set -eu
+          cmake -S . -B build/updater -DCLANG_VARIANT=native \
+            -DMAVERICKS_ALLOW_GENERIC_ICON=ON -DCMAKE_OBJC_COMPILER=/usr/bin/clang
+          cmake --build build/updater --target ClangUpdater
+          # sed 1d: otool's header line is the binary's own path, not a dependency -- see the cross job.
+          otool -L build/updater/ClangUpdater.app/Contents/MacOS/ClangUpdater | tee /tmp/o-all.txt | sed 1d > /tmp/o.txt
+          cat /tmp/o-all.txt
+          ! grep -qiE 'mavericks-clang' /tmp/o.txt || { echo "::error::native updater links the toolchain"; exit 1; }
+
       - name: Package the native .pkg (10.9.5 floor) + build-info
-        run: sh build/package-native-pkg.sh
+        run: UPD_APP="$PWD/build/updater/ClangUpdater.app" sh build/package-native-pkg.sh
 
       - name: Upload native artifacts (pkg + build-info)
         uses: actions/upload-artifact@v7
@@ -242,11 +274,51 @@ jobs:
           NOTES="$(sh build/release-notes-file.sh "$VER" "$VER")"
           cp "$NOTES" dist/RELEASE_NOTES.md
 
+      # BEFORE conformance, because conformance reads the appcasts: the cross pkg carries no install
+      # floor (it is a component pkg for modern macOS), and appcast-cross.xml is where its minimum OS
+      # is declared. With the appcasts present that passes on its own -- no floor deviation.
+      # Tag-only, so a fork PR never touches the secret.
+      - name: EdDSA-sign both .pkgs and render the appcasts
+        if: github.ref_type == 'tag'
+        env:
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+          GH_TOKEN: ${{ github.token }}   # sign_and_appcast.sh fetches ed25519-sign via gh
+        run: |
+          set -eu
+          [ -n "$SPARKLE_PRIVATE_KEY" ] || { echo "::error::SPARKLE_PRIVATE_KEY secret not set"; exit 1; }
+          VER="${{ needs.build-cross.outputs.version }}"
+          base="https://github.com/${GITHUB_REPOSITORY}/releases/download/$VER"
+          NPKG="$(ls dist/*native*.pkg | head -1)"
+          XPKG="$(ls dist/*cross*.pkg | head -1)"
+          # dist/RELEASE_NOTES.md, staged above -- the SAME bytes the Release body uses, so the page
+          # and Sparkle's update dialog cannot tell two different stories about one version.
+          sh "$MSC_SCRIPTS/sign_and_appcast.sh" \
+            --channel-title "Clang for Mavericks 22" --version "$VER" \
+            --pkg-url "$base/$(basename "$NPKG")" --notes-file dist/RELEASE_NOTES.md \
+            --pkg "$NPKG" --min-os 10.9.5 > dist/appcast.xml
+          sh "$MSC_SCRIPTS/sign_and_appcast.sh" \
+            --channel-title "Clang for Mavericks 22 (cross)" --version "$VER" \
+            --pkg-url "$base/$(basename "$XPKG")" --notes-file dist/RELEASE_NOTES.md \
+            --pkg "$XPKG" --min-os 11.0 > dist/appcast-cross.xml
+          echo "=== appcast.xml ==="; cat dist/appcast.xml
+          echo "=== appcast-cross.xml ==="; cat dist/appcast-cross.xml
+
       - name: Artifact conformance (both variants agree; scheme/floor correct)
         if: github.ref_type == 'tag'
         run: |
           sh "$MSC_SCRIPTS/artifact-facts.sh" dist "${{ needs.build-cross.outputs.version }}" \
             | sh "$MSC_SCRIPTS/check-artifact-conformance.sh"
+
+      # Conformance says the appcast is well-formed; this says an installed client will actually SEE
+      # this release as newer than the one it is running -- the property "-mavericks.N" broke.
+      - name: Assert each appcast is an upgrade on its line
+        if: github.ref_type == 'tag'
+        run: |
+          set -eu
+          for a in appcast.xml appcast-cross.xml; do
+            sh "$MSC_SCRIPTS/assert_appcast_upgradeable.sh" --appcast "dist/$a" \
+              --version "${{ needs.build-cross.outputs.version }}" --upstream-glob "22.*"
+          done
 
       # Exactly what the release carries -- the handoff tar is deliberately not among it.
       - name: Combine into the single release artifact
@@ -257,6 +329,7 @@ jobs:
             dist/*.pkg
             dist/RELEASE_NOTES.md
             dist/build-info-*.txt
+            dist/appcast*.xml
 
   publish:
     needs: [collect]
@@ -267,3 +340,31 @@ jobs:
     with:
       version: ${{ needs.collect.outputs.version }}
       artifact: mavericks-clang
+
+  # The per-LINE update feed. Installed updaters poll a FIXED URL (feed-22), whose assets are replaced
+  # on every clang-22 release while the tag itself never moves. Pointing them at /latest/ instead would
+  # offer a 22 user a future 23 unasked -- and then strand 23 users the moment 22.1.2 ships after 23.1.0,
+  # since Sparkle never offers a lower version.
+  feed:
+    needs: [collect, publish]
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with: { name: mavericks-clang, path: dist }
+
+      - name: Point feed-22 at this release's appcasts
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -eu
+          ls dist/appcast.xml dist/appcast-cross.xml >/dev/null
+          R="$GITHUB_REPOSITORY"
+          if ! gh release view feed-22 --repo "$R" >/dev/null 2>&1; then
+            gh release create feed-22 --repo "$R" --prerelease --title "clang-22 update feed" \
+              --notes "Sparkle appcast for the clang-22 line. Assets are replaced on every clang-22 release; the tag never moves -- installed updaters poll this URL."
+          fi
+          gh release upload feed-22 --repo "$R" dist/appcast.xml dist/appcast-cross.xml --clobber
+          echo "feed-22 now serves ${{ needs.collect.outputs.version }}"
