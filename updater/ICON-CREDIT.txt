@@ -1,0 +1,12 @@
+Updater icon: NONE. ClangUpdater/ClangCrossUpdater ship the standard macOS
+application icon by explicit opt-in (-DMAVERICKS_ALLOW_GENERIC_ICON=ON, the
+mavericks_reject_placeholder_icon opt-out), so no artwork is embedded at all.
+
+Deliberate, not an oversight: a stand-in .icns would be a placeholder shipped as
+if it were real artwork -- exactly what the icon gate exists to prevent -- and
+the obvious candidate, the LLVM dragon, is trademark-laden and would read as
+"official LLVM", which this product disclaims.
+
+Follow-up: an ORIGINAL Mavericks-Clang mark. Dropping it in is a two-line change
+-- add updater/<name>.icns, pass ICON to mavericks_add_updater_app, and stop
+passing MAVERICKS_ALLOW_GENERIC_ICON.
