@@ -8,6 +8,9 @@ docs/
 # NEVER ignore build/ itself: the committed version wrappers (build/version.sh, msc.sh,
 # lib.sh, versions.sh, build-cross.sh, …) live there. check-family-conventions.sh 7c gates this.
 build/work/
+# CMake build trees for the Sparkle updater .app (the only thing CMake builds here).
+build/updater/
+build/updater-cross/
 /dist/
 /archives/
 /toolchains/
