@@ -72,11 +72,15 @@ and `identifier` are the keys that are supposed to differ.
 
 Machine-read by `artifact-facts.sh` as `- <check>:<glob> : <reason>` (one line each, plain glob):
 
-- floor:mavericks-clang-*-cross-*.pkg : cross variant runs on modern macOS and only targets 10.9, so it declares no 10.9.5 install floor (golang cross-pkg precedent); its minimum system version moves into the Sparkle appcast once the updater lands (deferred this phase). The native pkg's 10.9.5 floor is a requirement, not a deviation.
+**None.** The cross pkg's lack of a 10.9.5 install floor used to need one — it runs on modern macOS
+and only *targets* 10.9, and with no updater there was no appcast to declare its minimum system
+version. `appcast-cross.xml` now declares it (`--min-os 11.0`), so conformance passes on its own.
 
 ## Deferred from family conventions (not artifact-conformance checks)
 
-- **No Sparkle updater yet**, either variant — swift-toolchain precedent for a heavy dev toolchain. A
-  later phase adds one appcast feed per line, which also retires the floor deviation above.
+- **Generic (opt-in) updater icon** — the Sparkle updater ships the standard macOS app icon by
+  explicit opt-in (`MAVERICKS_ALLOW_GENERIC_ICON=ON`), embedding no artwork at all, pending a real
+  Mavericks-Clang mark. Not the LLVM dragon (trademark, and it would read as official LLVM). See
+  `updater/ICON-CREDIT.txt`.
 - **SDK not redistributed** — the Apple MacOSX10.9 SDK is not baked into the artifact. The pkg ships
   `libexec/fetch_sdk.sh` and fetches on first use (golang precedent + redistribution cleanliness).
