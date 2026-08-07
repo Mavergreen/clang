@@ -6,11 +6,11 @@
 set -eu
 HERE="$(cd "$(dirname "$0")" && pwd)"
 . "$HERE/versions.sh"
-: "${MSC_SCRIPTS:?need shared-cmake}"
+: "${SHIPYARD_SCRIPTS:?need shipyard}"
 export COPYFILE_DISABLE=1
 STAGE="$WORK/stage-native$NATIVE_PREFIX"
 [ -x "$STAGE/bin/clang" ] || { echo "FATAL: run build-native.sh first" >&2; exit 1; }
-VER="$(sh "$MSC_SCRIPTS/resolve-version.sh" "$(sh "$MSC_SCRIPTS/release-mode.sh")")"
+VER="$(sh "$SHIPYARD_SCRIPTS/resolve-version.sh" "$(sh "$SHIPYARD_SCRIPTS/release-mode.sh")")"
 DIST="$HERE/../dist"; mkdir -p "$DIST"
 PAYLOAD="$WORK/stage-native"
 NAME="mavericks-clang-${CLANG_LINE}-native-$VER.pkg"
@@ -35,7 +35,7 @@ UPD_LABEL="dev.modernmavericks.ClangUpdater-updatecheck"
 set --                        # build_component_pkg.sh gets --scripts only when there IS a postinstall
 if [ -n "$UPD_APP" ] && [ -d "$UPD_APP" ]; then
   scr="$OUTDIR/pkg-scripts-native"; rm -rf "$scr"; mkdir -p "$scr"
-  sh "$MSC_SCRIPTS/stage_updater.sh" \
+  sh "$SHIPYARD_SCRIPTS/stage_updater.sh" \
     --stage "$PAYLOAD" \
     --app "$UPD_APP" \
     --app-dir "$UPD_DIR" \
@@ -50,7 +50,7 @@ fi
 find "$PAYLOAD" -name '._*' -delete 2>/dev/null || true
 
 comp="$OUTDIR/mavericks-clang-${CLANG_LINE}-native-component.pkg"
-sh "$MSC_SCRIPTS/build_component_pkg.sh" \
+sh "$SHIPYARD_SCRIPTS/build_component_pkg.sh" \
   --root "$PAYLOAD" \
   --identifier "$NATIVE_IDENTIFIER" \
   --version "$VER" \
@@ -58,7 +58,7 @@ sh "$MSC_SCRIPTS/build_component_pkg.sh" \
   "$@" \
   --out "$comp" >/dev/null
 
-sh "$MSC_SCRIPTS/set_install_floor.sh" \
+sh "$SHIPYARD_SCRIPTS/set_install_floor.sh" \
   --identifier "$NATIVE_IDENTIFIER" \
   --title "Clang for Mavericks ${CLANG_LINE} — LLVM ${LLVM_VERSION} for OS X 10.9" \
   --component "$comp" --out "$OUTDIR/$NAME" --host-arch x86_64
@@ -69,7 +69,7 @@ echo "built $DIST/$NAME"
 # What this variant was built FROM. Conformance compares any key appearing in more than one variant,
 # so llvm/legacy_support/target must match the cross record; variant/arch/prefix/pkg/identifier are
 # the keys that are supposed to differ.
-sh "$MSC_SCRIPTS/build-info.sh" "$DIST/build-info-native.txt" \
+sh "$SHIPYARD_SCRIPTS/build-info.sh" "$DIST/build-info-native.txt" \
   variant=native arch=x86_64 prefix="$NATIVE_PREFIX" pkg="$NAME" identifier="$NATIVE_IDENTIFIER" \
   llvm="$LLVM_VERSION" legacy_support="$MLS_VERSION" target="$TARGET_TRIPLE"
 cat "$DIST/build-info-native.txt"

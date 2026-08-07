@@ -11,8 +11,8 @@ to port. An own-upstream bump cuts `<upstream>-mavericks.1`; an ingredient bump 
 | LLVM/Clang source (own upstream) | `lines/<line>/UPSTREAM_VERSION` | ✅ per-line customManager → `github-tags` on `llvm/llvm-project`, capped to the line's major | `release.yml` on push to main cuts `-mavericks.1` |
 | macports-legacy-support shim (prebuilt) | `MLS_VERSION # mavericks-legacysupport` in `build/versions.sh` | ✅ shared preset's `# mavericks-legacysupport` customManager | `build/versions.sh` is a watched path → repackage dispatched |
 | LLVM release-signing keys | `keys/llvm-release.asc` | ❌ **untrackable — manual refresh** (see below) | not a watched path; a stale bundle fails the build loudly, never silently |
-| MacOSX10.9 SDK | `ModernMavericks/shared-cmake@v1` (`fetch_sdk.sh`) | ✅ github-actions manager tracks the tag | `@v1` is a *moving* tag, so content moves without any path here changing |
-| Sparkle framework (embedded in the updater `.app`) | `ModernMavericks/shared-cmake@v1` (`mavericks_fetch_sparkle`; Sparkle 1.x — the last line that runs on 10.9) | ✅ via `@v1` (github-actions manager) | content moves with `@v1` |
+| MacOSX10.9 SDK | `ModernMavericks/shipyard@v1` (`fetch_sdk.sh`) | ✅ github-actions manager tracks the tag | `@v1` is a *moving* tag, so content moves without any path here changing |
+| Sparkle framework (embedded in the updater `.app`) | `ModernMavericks/shipyard@v1` (`mavericks_fetch_sparkle`; Sparkle 1.x — the last line that runs on 10.9) | ✅ via `@v1` (github-actions manager) | content moves with `@v1` |
 | Sparkle EdDSA public key | `updater/ed25519_key.pub` | ❌ untrackable (our own key) | baked into the updater's `Info.plist` as `SUPublicEDKey`; paired with the `SPARKLE_PRIVATE_KEY` secret |
 
 Not ingredients: `build/*.sh` and `native-bootstrap/` are this repo's own recipe — a change there is a

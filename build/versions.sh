@@ -52,8 +52,8 @@ export CROSS_PREFIX="/usr/local/mavericks-clang-${CLANG_LINE}-cross"
 export NATIVE_IDENTIFIER="dev.modernmavericks.clang.clang${CLANG_LINE}"
 export CROSS_IDENTIFIER="dev.modernmavericks.clang.clang${CLANG_LINE}-cross"
 
-# shared-cmake scripts dir for the shell callers (SDK fetch, compat guard, productbuild, build-info).
-# mavericks-shared-cmake is a find_package package INSTALLED to a prefix and self-registered in
+# shipyard scripts dir for the shell callers (SDK fetch, compat guard, productbuild, build-info).
+# mavericks-shipyard is a find_package package INSTALLED to a prefix and self-registered in
 # CMake's user package registry -- it is NOT vendored. Resolve in the family's usual order:
 #   1. $MAVERICKS_SHARED_SCRIPTS override, else
 #   2. the user package registry entry (honors whatever --prefix it was installed to), else
@@ -61,11 +61,11 @@ export CROSS_IDENTIFIER="dev.modernmavericks.clang.clang${CLANG_LINE}-cross"
 _mav_shared_scripts() {
   if [ -n "${MAVERICKS_SHARED_SCRIPTS:-}" ] && [ -d "$MAVERICKS_SHARED_SCRIPTS" ]; then
     printf '%s\n' "$MAVERICKS_SHARED_SCRIPTS"; return 0; fi
-  for _r in "$HOME/.cmake/packages/MavericksSharedCMake/"*; do
+  for _r in "$HOME/.cmake/packages/MavericksShipyard/"*; do
     [ -f "$_r" ] || continue; _d="$(cat "$_r")/scripts"
     [ -d "$_d" ] && { printf '%s\n' "$_d"; return 0; }; done
-  [ -d "$REPO_ROOT/../mavericks-shared-cmake/scripts" ] && \
-    { printf '%s\n' "$REPO_ROOT/../mavericks-shared-cmake/scripts"; return 0; }
+  [ -d "$REPO_ROOT/../mavericks-shipyard/scripts" ] && \
+    { printf '%s\n' "$REPO_ROOT/../mavericks-shipyard/scripts"; return 0; }
   return 1
 }
-MSC_SCRIPTS="$(_mav_shared_scripts || true)"; export MSC_SCRIPTS
+SHIPYARD_SCRIPTS="$(_mav_shared_scripts || true)"; export SHIPYARD_SCRIPTS

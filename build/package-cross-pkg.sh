@@ -4,11 +4,11 @@
 set -eu
 HERE="$(cd "$(dirname "$0")" && pwd)"
 . "$HERE/versions.sh"
-: "${MSC_SCRIPTS:?need shared-cmake}"
+: "${SHIPYARD_SCRIPTS:?need shipyard}"
 export COPYFILE_DISABLE=1
 STAGE="$WORK/stage$CROSS_PREFIX"
 [ -x "$STAGE/bin/clang" ] || { echo "FATAL: run build-cross.sh first" >&2; exit 1; }
-VER="$(sh "$MSC_SCRIPTS/resolve-version.sh" "$(sh "$MSC_SCRIPTS/release-mode.sh")")"
+VER="$(sh "$SHIPYARD_SCRIPTS/resolve-version.sh" "$(sh "$SHIPYARD_SCRIPTS/release-mode.sh")")"
 DIST="$HERE/../dist"; mkdir -p "$DIST"
 PAYLOAD="$WORK/stage"     # DESTDIR root; contains .$CROSS_PREFIX
 NAME="mavericks-clang-${CLANG_LINE}-cross-$VER.pkg"
@@ -38,7 +38,7 @@ UPD_LABEL="dev.modernmavericks.ClangCrossUpdater-updatecheck"
 set --                        # build_component_pkg.sh gets --scripts only when there IS a postinstall
 if [ -n "$UPD_APP" ] && [ -d "$UPD_APP" ]; then
   scr="$STAGING_OUT/pkg-scripts-cross"; rm -rf "$scr"; mkdir -p "$scr"
-  sh "$MSC_SCRIPTS/stage_updater.sh" \
+  sh "$SHIPYARD_SCRIPTS/stage_updater.sh" \
     --stage "$PAYLOAD" \
     --app "$UPD_APP" \
     --app-dir "$UPD_DIR" \
@@ -53,7 +53,7 @@ fi
 # AppleDouble sidecars are what an NFS-hosted stage sprays; they would ship as real payload files.
 find "$PAYLOAD" -name '._*' -delete 2>/dev/null || true
 
-pkg="$(sh "$MSC_SCRIPTS/build_component_pkg.sh" \
+pkg="$(sh "$SHIPYARD_SCRIPTS/build_component_pkg.sh" \
   --root "$PAYLOAD" \
   --identifier "$CROSS_IDENTIFIER" \
   --version "$VER" \
@@ -66,7 +66,7 @@ pkg="$DIST/$NAME"
 echo "built $pkg"
 
 # What this variant was built FROM (conformance compares variants; a reader can see it).
-sh "$MSC_SCRIPTS/build-info.sh" "$DIST/build-info-cross.txt" \
+sh "$SHIPYARD_SCRIPTS/build-info.sh" "$DIST/build-info-cross.txt" \
   variant=cross arch=arm64 prefix="$CROSS_PREFIX" pkg="$(basename "$pkg")" identifier="$CROSS_IDENTIFIER" \
   llvm="$LLVM_VERSION" legacy_support="$MLS_VERSION" target="$TARGET_TRIPLE"
 cat "$DIST/build-info-cross.txt"

@@ -9,7 +9,7 @@
 set -eu
 HERE="$(cd "$(dirname "$0")" && pwd)"; ROOT="$(cd "$HERE/.." && pwd)"
 . "$ROOT/build/versions.sh"
-: "${MSC_SCRIPTS:?need shared-cmake}"
+: "${SHIPYARD_SCRIPTS:?need shipyard}"
 STAGE="$WORK/stage$CROSS_PREFIX"
 CLANGXX="$STAGE/bin/clang++"
 [ -x "$CLANGXX" ] || { echo "not built -- skipping"; exit 77; }
@@ -20,7 +20,7 @@ CLANGXX="$STAGE/bin/clang++"
 # ~/Library/Caches baked into a shipped .pkg is a build-machine path no user has.
 if [ ! -e "$STAGE/SDKs/MacOSX10.9.sdk" ]; then
   mkdir -p "$STAGE/SDKs"
-  SDK="$(sh "$MSC_SCRIPTS/fetch_sdk.sh")"; ln -sfn "$SDK" "$STAGE/SDKs/MacOSX10.9.sdk"
+  SDK="$(sh "$SHIPYARD_SCRIPTS/fetch_sdk.sh")"; ln -sfn "$SDK" "$STAGE/SDKs/MacOSX10.9.sdk"
 fi
 
 t="$(mktemp -d)"; trap 'rm -rf "$t"' EXIT
@@ -33,7 +33,7 @@ lipo -archs "$t/hello" | grep -qw x86_64 || { echo "FAIL: not x86_64"; exit 1; }
 
 # The compat guard: assert the emitted binary is 10.9-safe. Do NOT point it at the arm64 host clang --
 # it asserts arch x86_64 by design and would fail for the wrong reason.
-sh "$MSC_SCRIPTS/assert_binary_compatible.sh" "$t/hello"
+sh "$SHIPYARD_SCRIPTS/assert_binary_compatible.sh" "$t/hello"
 
 # ...and the shipped target runtime dylibs, if the runtimes build produced any. Discovered rather than
 # assumed: LLVM lays per-target runtimes under lib/<triple>/ and the triple is the runtimes-build one
@@ -42,7 +42,7 @@ rtlib="$(find "$STAGE/lib" -name 'libc++.*dylib' -print 2>/dev/null | head -1)"
 if [ -n "$rtlib" ]; then
   RTDIR="$(dirname "$rtlib")"
   for d in "$RTDIR"/libc++.*dylib "$RTDIR"/libc++abi.*dylib; do
-    [ -f "$d" ] && sh "$MSC_SCRIPTS/assert_binary_compatible.sh" "$d"
+    [ -f "$d" ] && sh "$SHIPYARD_SCRIPTS/assert_binary_compatible.sh" "$d"
   done
 else
   echo "note: no target libc++ dylib staged (static-only runtimes); the emitted binary is the proof"

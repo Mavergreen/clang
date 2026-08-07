@@ -13,7 +13,7 @@
 set -eu
 HERE="$(cd "$(dirname "$0")" && pwd)"
 . "$HERE/versions.sh"
-: "${MSC_SCRIPTS:?mavericks-shared-cmake not found; install it -- see its README}"
+: "${SHIPYARD_SCRIPTS:?mavericks-shipyard not found; install it -- see its README}"
 JOBS="$(mavericks_build_jobs)"
 
 CROSS_STAGE="$WORK/stage$CROSS_PREFIX"
@@ -22,7 +22,7 @@ SRC="$WORK/llvm-project-$LLVM_VERSION.src"
 [ -d "$SRC/llvm" ] || { echo "FATAL: LLVM source missing at $SRC (run build-cross.sh)" >&2; exit 1; }
 
 echo "==> 1. make the cross clang usable as a compiler (populate its first-use SDK symlink)"
-SDK="$(sh "$MSC_SCRIPTS/fetch_sdk.sh")"; export SDK
+SDK="$(sh "$SHIPYARD_SCRIPTS/fetch_sdk.sh")"; export SDK
 [ -d "$SDK" ] || { echo "FATAL: 10.9 SDK not found: '$SDK'" >&2; exit 1; }
 mkdir -p "$CROSS_STAGE/SDKs"
 [ -e "$CROSS_STAGE/SDKs/MacOSX10.9.sdk" ] || ln -sf "$SDK" "$CROSS_STAGE/SDKs/MacOSX10.9.sdk"

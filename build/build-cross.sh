@@ -8,7 +8,7 @@
 set -eu
 HERE="$(cd "$(dirname "$0")" && pwd)"
 . "$HERE/versions.sh"
-: "${MSC_SCRIPTS:?mavericks-shared-cmake not found; install it -- see its README}"
+: "${SHIPYARD_SCRIPTS:?mavericks-shipyard not found; install it -- see its README}"
 JOBS="$(mavericks_build_jobs)"
 
 STAGE="$WORK/stage$CROSS_PREFIX"          # DESTDIR-style staging at the install prefix
@@ -17,7 +17,7 @@ BLD="$WORK/llvm-build"
 mkdir -p "$WORK"
 
 echo "==> 1. pinned 10.9 SDK + legacy-support shim"
-SDK="$(sh "$MSC_SCRIPTS/fetch_sdk.sh")"; export SDK
+SDK="$(sh "$SHIPYARD_SCRIPTS/fetch_sdk.sh")"; export SDK
 [ -d "$SDK" ] || { echo "FATAL: 10.9 SDK not found: '$SDK'" >&2; exit 1; }
 LEGACY_A="$(sh "$HERE/fetch-legacy-support.sh" | tail -1)"
 LEGACY_INC="$(dirname "$(dirname "$LEGACY_A")")/include"
@@ -152,7 +152,7 @@ echo "    target C++ runtime: $RTREL"
 
 # First-use SDK fetch: ship the pinned-SDK fetch script; the SDK itself is deliberately NOT
 # redistributed (Apple's bytes). clang.cfg references $CROSS_PREFIX/SDKs/MacOSX10.9.sdk relatively.
-cp "$MSC_SCRIPTS/fetch_sdk.sh" "$MSC_SCRIPTS/mavericks_fetch.sh" "$STAGE/libexec/"
+cp "$SHIPYARD_SCRIPTS/fetch_sdk.sh" "$SHIPYARD_SCRIPTS/mavericks_fetch.sh" "$STAGE/libexec/"
 
 # -Wl,-U,__availability_version_check is a PRODUCT-level flag, not a build workaround. Any 10.9-targeted
 # program using @available/__builtin_available pulls compiler-rt's os_version_check.c.o, which

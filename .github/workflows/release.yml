@@ -44,8 +44,8 @@ jobs:
       - uses: actions/checkout@v7
         with: { fetch-depth: 0 }   # version.sh counts existing <upstream>-mavericks.* tags
 
-      - name: Install mavericks-shared-cmake
-        uses: ModernMavericks/shared-cmake/.github/actions/install@v1
+      - name: Install mavericks-shipyard
+        uses: ModernMavericks/shipyard/.github/actions/install@v1
 
       # gpg verifies the LLVM source tarball (the signature is what makes a Renovate bump
       # self-contained); ccache is what makes every build after the first one cheap.
@@ -61,7 +61,7 @@ jobs:
           if [ "$GITHUB_REF_TYPE" = tag ]; then
             full="$GITHUB_REF_NAME"; rel=yes
           else
-            mode="$(sh "$MSC_SCRIPTS/release-mode.sh")"
+            mode="$(sh "$SHIPYARD_SCRIPTS/release-mode.sh")"
             out="$(sh build/version.sh "$mode")"
             full="$(printf '%s\n' "$out" | sed -n 's/^FULL=//p')"
             rel="$(printf '%s\n' "$out" | sed -n 's/^RELEASE=//p')"
@@ -83,8 +83,8 @@ jobs:
 
       - name: Run the repo's tests + guard ingredient pins
         run: |
-          sh "$MSC_SCRIPTS/run-repo-tests.sh"
-          sh "$MSC_SCRIPTS/check-ingredient-pins.sh"
+          sh "$SHIPYARD_SCRIPTS/run-repo-tests.sh"
+          sh "$SHIPYARD_SCRIPTS/check-ingredient-pins.sh"
 
       - name: Cross-build the toolchain (ccache)
         run: sh build/build-cross.sh
@@ -173,8 +173,8 @@ jobs:
       - uses: actions/checkout@v7
         with: { fetch-depth: 0 }
 
-      - name: Install mavericks-shared-cmake
-        uses: ModernMavericks/shared-cmake/.github/actions/install@v1
+      - name: Install mavericks-shipyard
+        uses: ModernMavericks/shipyard/.github/actions/install@v1
 
       - name: Ensure ccache
         run: command -v ccache >/dev/null 2>&1 || brew install ccache
@@ -257,8 +257,8 @@ jobs:
       - uses: actions/checkout@v7
         with: { fetch-depth: 0 }
 
-      - name: Install mavericks-shared-cmake
-        uses: ModernMavericks/shared-cmake/.github/actions/install@v1
+      - name: Install mavericks-shipyard
+        uses: ModernMavericks/shipyard/.github/actions/install@v1
 
       - uses: actions/download-artifact@v8
         with: { name: variant-cross, path: dist }
@@ -292,11 +292,11 @@ jobs:
           XPKG="$(ls dist/*cross*.pkg | head -1)"
           # dist/RELEASE_NOTES.md, staged above -- the SAME bytes the Release body uses, so the page
           # and Sparkle's update dialog cannot tell two different stories about one version.
-          sh "$MSC_SCRIPTS/sign_and_appcast.sh" \
+          sh "$SHIPYARD_SCRIPTS/sign_and_appcast.sh" \
             --channel-title "Clang for Mavericks 22" --version "$VER" \
             --pkg-url "$base/$(basename "$NPKG")" --notes-file dist/RELEASE_NOTES.md \
             --pkg "$NPKG" --min-os 10.9.5 > dist/appcast.xml
-          sh "$MSC_SCRIPTS/sign_and_appcast.sh" \
+          sh "$SHIPYARD_SCRIPTS/sign_and_appcast.sh" \
             --channel-title "Clang for Mavericks 22 (cross)" --version "$VER" \
             --pkg-url "$base/$(basename "$XPKG")" --notes-file dist/RELEASE_NOTES.md \
             --pkg "$XPKG" --min-os 11.0 > dist/appcast-cross.xml
@@ -306,8 +306,8 @@ jobs:
       - name: Artifact conformance (both variants agree; scheme/floor correct)
         if: github.ref_type == 'tag'
         run: |
-          sh "$MSC_SCRIPTS/artifact-facts.sh" dist "${{ needs.build-cross.outputs.version }}" \
-            | sh "$MSC_SCRIPTS/check-artifact-conformance.sh"
+          sh "$SHIPYARD_SCRIPTS/artifact-facts.sh" dist "${{ needs.build-cross.outputs.version }}" \
+            | sh "$SHIPYARD_SCRIPTS/check-artifact-conformance.sh"
 
       # Conformance says the appcast is well-formed; this says an installed client will actually SEE
       # this release as newer than the one it is running -- the property "-mavericks.N" broke.
@@ -316,7 +316,7 @@ jobs:
         run: |
           set -eu
           for a in appcast.xml appcast-cross.xml; do
-            sh "$MSC_SCRIPTS/assert_appcast_upgradeable.sh" --appcast "dist/$a" \
+            sh "$SHIPYARD_SCRIPTS/assert_appcast_upgradeable.sh" --appcast "dist/$a" \
               --version "${{ needs.build-cross.outputs.version }}" --upstream-glob "22.*"
           done
 
@@ -336,7 +336,7 @@ jobs:
     if: github.ref_type == 'tag'
     permissions:
       contents: write
-    uses: ModernMavericks/shared-cmake/.github/workflows/publish-release.yml@v1
+    uses: ModernMavericks/shipyard/.github/workflows/publish-release.yml@v1
     with:
       version: ${{ needs.collect.outputs.version }}
       artifact: mavericks-clang

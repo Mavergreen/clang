@@ -8,7 +8,7 @@
 set -eu
 HERE="$(cd "$(dirname "$0")" && pwd)"; ROOT="$(cd "$HERE/.." && pwd)"
 . "$ROOT/build/versions.sh"
-: "${MSC_SCRIPTS:?need shared-cmake}"
+: "${SHIPYARD_SCRIPTS:?need shipyard}"
 STAGE="$WORK/stage-native$NATIVE_PREFIX"
 [ -x "$STAGE/bin/clang" ] || { echo "not built -- skipping"; exit 77; }
 
@@ -36,7 +36,7 @@ find "$STAGE/lib" \( -name 'libc++.*dylib' -o -name 'libc++abi.*dylib' -o -name 
 set --
 while IFS= read -r b; do set -- "$@" "$b"; done < "$list"
 echo "    guarding $# binaries"
-sh "$MSC_SCRIPTS/assert_binary_compatible.sh" "$@"
+sh "$SHIPYARD_SCRIPTS/assert_binary_compatible.sh" "$@"
 
 echo "==> Rosetta functional smoke"
 # Rosetta's AVAILABILITY never gates -- whether macOS 26 will run a min-10.9 x86_64 binary is not
@@ -53,7 +53,7 @@ echo "==> Rosetta functional smoke"
 # `clang++ --version` is the probe: if that executes, the toolchain runs here, and anything failing
 # afterwards is a defect in what we shipped.
 if [ ! -e "$STAGE/SDKs/MacOSX10.9.sdk" ]; then
-  SDK="$(sh "$MSC_SCRIPTS/fetch_sdk.sh")"; mkdir -p "$STAGE/SDKs"; ln -sfn "$SDK" "$STAGE/SDKs/MacOSX10.9.sdk"
+  SDK="$(sh "$SHIPYARD_SCRIPTS/fetch_sdk.sh")"; mkdir -p "$STAGE/SDKs"; ln -sfn "$SDK" "$STAGE/SDKs/MacOSX10.9.sdk"
 fi
 softwareupdate --install-rosetta --agree-to-license >/dev/null 2>&1 || true
 t="$(mktemp -d)"; trap 'rm -rf "$t"' EXIT
@@ -66,7 +66,7 @@ else
     || { echo "FAIL: the native clang++ cannot compile a hello world" >&2; exit 1; }
   lipo -archs "$t/h" | grep -qw x86_64 \
     || { echo "FAIL: the native clang++ emitted a non-x86_64 binary" >&2; exit 1; }
-  sh "$MSC_SCRIPTS/assert_binary_compatible.sh" "$t/h"
+  sh "$SHIPYARD_SCRIPTS/assert_binary_compatible.sh" "$t/h"
   echo "    the native clang++ built a 10.9-safe x86_64 binary"
   "$t/h" >/dev/null 2>&1 && echo "    ...and its output runs too"
 fi

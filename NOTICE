@@ -19,7 +19,7 @@ itself a port of https://github.com/macports/macports-legacy-support
 (BSD-3-Clause). The pin lives in build/versions.sh; see INGREDIENTS.md.
 
 The Apple MacOSX10.9 SDK is NOT redistributed here. It is fetched at build
-time (and, for an installed toolchain, at first use) by mavericks-shared-cmake's
+time (and, for an installed toolchain, at first use) by mavericks-shipyard's
 fetch_sdk.sh, and remains subject to Apple's own license.
 
 native-bootstrap/ contains Wowfunhappy's original on-10.9 bootstrap scripts
