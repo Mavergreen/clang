@@ -23,7 +23,7 @@ if [ ! -e "$STAGE/SDKs/MacOSX10.9.sdk" ]; then
   SDK="$(sh "$SHIPYARD_SCRIPTS/fetch_sdk.sh")"; ln -sfn "$SDK" "$STAGE/SDKs/MacOSX10.9.sdk"
 fi
 
-t="$(mktemp -d)"; trap 'rm -rf "$t"' EXIT
+t="$(mktemp -d "${TMPDIR:-/tmp}/smoke-target.XXXXXX")"; trap 'rm -rf "$t"' EXIT   # template: 10.9 BSD mktemp requires one
 cat > "$t/hello.cpp" <<'EOF'
 #include <iostream>
 int main(){ std::cout << "hello mavericks\n"; return 0; }

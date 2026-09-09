@@ -22,7 +22,7 @@ echo "==> compat guard on shipped host Mach-O (x86_64 + min 10.9)"
 # Collect first, then guard in ONE call: assert_binary_compatible.sh fails closed on an empty list
 # ("CANNOT MEASURE"), so a stage that somehow contains no Mach-O is a failure rather than a silent
 # pass. Non-Mach-O entries in bin/ (the .cfg files, the portable-ld shell wrapper) are skipped.
-list="$(mktemp)"; trap 'rm -f "$list"' EXIT
+list="$(mktemp "${TMPDIR:-/tmp}/smoke-native-list.XXXXXX")"; trap 'rm -f "$list"' EXIT   # template: 10.9 BSD mktemp requires one
 for f in "$STAGE"/bin/*; do
   [ -f "$f" ] || continue
   file "$f" 2>/dev/null | grep -q 'Mach-O' || continue
@@ -56,7 +56,7 @@ if [ ! -e "$STAGE/SDKs/MacOSX10.9.sdk" ]; then
   SDK="$(sh "$SHIPYARD_SCRIPTS/fetch_sdk.sh")"; mkdir -p "$STAGE/SDKs"; ln -sfn "$SDK" "$STAGE/SDKs/MacOSX10.9.sdk"
 fi
 softwareupdate --install-rosetta --agree-to-license >/dev/null 2>&1 || true
-t="$(mktemp -d)"; trap 'rm -rf "$t"' EXIT
+t="$(mktemp -d "${TMPDIR:-/tmp}/smoke-native.XXXXXX")"; trap 'rm -rf "$t"' EXIT   # template: 10.9 BSD mktemp requires one
 if ! arch -x86_64 "$STAGE/bin/clang++" --version >/dev/null 2>&1; then
   echo "    SKIP: cannot execute an x86_64/10.9 binary here (no Rosetta); validate on real hardware"
 else

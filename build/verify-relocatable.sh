@@ -26,7 +26,7 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 . "$HERE/versions.sh"
 P="${1:?usage: verify-relocatable.sh <prefix>}"
 n=0; bad=0
-tmp="$(mktemp)"
+tmp="$(mktemp "${TMPDIR:-/tmp}/verify-relocatable.XXXXXX")"   # template: 10.9 BSD mktemp requires one
 # `|| true`: find exits non-zero when one of these dirs is absent, which under set -e would abort the
 # audit before it printed a thing -- a silent pass is the one outcome a gate must never have.
 find "$P/bin" "$P/lib" "$P/libexec" -type f 2>/dev/null > "$tmp" || true
