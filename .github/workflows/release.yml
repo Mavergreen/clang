@@ -21,12 +21,23 @@ on:
 permissions:
   contents: write
 
-# Dispatches share ONE group so two of them (a manual cut racing the ingredient-bump auto-repackage)
-# cannot each compute -mavericks.(N+1) from the same tags and collide. Never keyed on github.run_id,
-# which would make every run its own group and the whole block a no-op.
+# Only a pull_request supersedes -- keyed per ref, so a force-push replaces its own predecessor.
+# Everything else (a branch push, a *-mavericks.* tag, a workflow_dispatch) is keyed per RUN and is
+# therefore alone in its group: never queued, never evicted, never cancelled.
+#
+# cancel-in-progress:false was never the protection it looked like: it protects the RUNNING job and
+# not the QUEUED one -- GitHub keeps only the newest pending run per group and cancels the rest -- so
+# the old shared group discarded runs silently. golang lost one on 2026-09-09, 13 seconds after the
+# run that evicted it.
+#
+# This repo publishes only from a tag or a dispatch, but keeps the family's one shape: eight of the
+# thirteen product repos auto-cut on a push to main, and a rule that holds only in some of them is a
+# rule nobody can apply from memory.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event_name == 'workflow_dispatch' && 'local_release' || github.ref }}
-  cancel-in-progress: ${{ github.event_name != 'workflow_dispatch' }}
+  group: >-
+    release-${{ github.event_name == 'pull_request'
+                && github.ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
   # Fixed, deterministic scratch dir OUTSIDE the checkout, so the cross job's staged toolchain lands
