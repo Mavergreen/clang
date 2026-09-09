@@ -64,7 +64,7 @@ else
   printf '#include <iostream>\nint main(){std::cout<<"hi\\n";return 0;}\n' > "$t/h.cpp"
   arch -x86_64 "$STAGE/bin/clang++" "$t/h.cpp" -o "$t/h" \
     || { echo "FAIL: the native clang++ cannot compile a hello world" >&2; exit 1; }
-  lipo -archs "$t/h" | grep -qw x86_64 \
+  lipo -info "$t/h" | sed -n 's/.*: //p' | grep -qw x86_64 \
     || { echo "FAIL: the native clang++ emitted a non-x86_64 binary" >&2; exit 1; }
   sh "$SHIPYARD_SCRIPTS/assert_binary_compatible.sh" "$t/h"
   echo "    the native clang++ built a 10.9-safe x86_64 binary"

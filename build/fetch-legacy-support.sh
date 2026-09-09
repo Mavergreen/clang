@@ -43,7 +43,7 @@ test -f "$A" || { echo "FATAL: no static .a extracted" >&2; exit 1; }
 
 # The shim must actually be for the target we cross-build against, not the host. A .a that is
 # arm64-only would link nothing and fail far later, inside the libc++ runtimes build.
-lipo -archs "$A" 2>/dev/null | grep -qw x86_64 \
-  || { echo "FATAL: $A has no x86_64 slice (archs: $(lipo -archs "$A" 2>&1))" >&2; exit 1; }
+lipo -info "$A" 2>/dev/null | sed -n 's/.*: //p' | grep -qw x86_64 \
+  || { echo "FATAL: $A has no x86_64 slice (archs: $(lipo -info "$A" 2>&1 | sed -n 's/.*: //p'))" >&2; exit 1; }
 
 echo "$A"
