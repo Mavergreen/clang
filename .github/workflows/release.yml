@@ -296,7 +296,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}   # sign_and_appcast.sh fetches ed25519-sign via gh
         run: |
           set -eu
-          [ -n "$SPARKLE_PRIVATE_KEY" ] || { echo "::error::SPARKLE_PRIVATE_KEY secret not set"; exit 1; }
+          # printenv, not [ -n "$SPARKLE_PRIVATE_KEY" ]: the shell never expands the key, so no trace can print it
+          printenv SPARKLE_PRIVATE_KEY | grep -q . || { echo "::error::SPARKLE_PRIVATE_KEY secret not set"; exit 1; }
           VER="${{ needs.build-cross.outputs.version }}"
           base="https://github.com/${GITHUB_REPOSITORY}/releases/download/$VER"
           NPKG="$(ls dist/*native*.pkg | head -1)"
@@ -342,8 +343,23 @@ jobs:
             dist/build-info-*.txt
             dist/appcast*.xml
 
-  publish:
+  # Before anything is published: no log of this run, and no file about to be released, carries a
+  # piece of the signing key. shipyard's publish-release.yml looks for this job's record on any signed
+  # release; it cannot run the scan itself (reading job logs needs actions: read).
+  scan:
     needs: [collect]
+    if: github.ref_type == 'tag'
+    permissions:
+      actions: read     # this run's job logs
+      contents: read
+    uses: ModernMavericks/shipyard/.github/workflows/scan-for-key.yml@v1
+    with:
+      artifact: mavericks-clang
+    secrets:
+      SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+
+  publish:
+    needs: [collect, scan]
     if: github.ref_type == 'tag'
     permissions:
       contents: write
