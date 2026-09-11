@@ -1,6 +1,6 @@
 name: release
 
-# Both clang-22 variants, built on FREE standard macos runners and published tag-only.
+# Both clang-22 variants, built on FREE standard macos runners, published from a tag or a dispatch.
 # build-cross (the big build: clang+lld + the x86_64/10.9 runtimes) hands its staged toolchain to
 # build-native, which cross-HOSTS the x86_64/10.9 clang using it as the compiler. No 10.9 runner
 # anywhere; the compat guards + emitted-binary smokes are the in-CI equivalence proof.
@@ -51,6 +51,7 @@ jobs:
     timeout-minutes: 355   # safety cap, under GitHub's 360-minute hard limit
     outputs:
       version: ${{ steps.ver.outputs.full }}
+      publish: ${{ steps.ver.outputs.release }}
     steps:
       - uses: actions/checkout@v7
         with: { fetch-depth: 0 }   # version.sh counts existing <upstream>-mavericks.* tags
@@ -264,6 +265,7 @@ jobs:
     runs-on: macos-26   # pkgutil-based conformance needs macOS
     outputs:
       version: ${{ needs.build-cross.outputs.version }}
+      publish: ${{ needs.build-cross.outputs.publish }}
     steps:
       - uses: actions/checkout@v7
         with: { fetch-depth: 0 }
@@ -288,9 +290,9 @@ jobs:
       # BEFORE conformance, because conformance reads the appcasts: the cross pkg carries no install
       # floor (it is a component pkg for modern macOS), and appcast-cross.xml is where its minimum OS
       # is declared. With the appcasts present that passes on its own -- no floor deviation.
-      # Tag-only, so a fork PR never touches the secret.
+      # Publishing runs only, so a fork PR never touches the secret.
       - name: EdDSA-sign both .pkgs and render the appcasts
-        if: github.ref_type == 'tag'
+        if: needs.build-cross.outputs.publish == 'yes'
         env:
           SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
           GH_TOKEN: ${{ github.token }}   # sign_and_appcast.sh fetches ed25519-sign via gh
@@ -316,7 +318,7 @@ jobs:
           echo "=== appcast-cross.xml ==="; cat dist/appcast-cross.xml
 
       - name: Artifact conformance (both variants agree; scheme/floor correct)
-        if: github.ref_type == 'tag'
+        if: needs.build-cross.outputs.publish == 'yes'
         run: |
           sh "$SHIPYARD_SCRIPTS/artifact-facts.sh" dist "${{ needs.build-cross.outputs.version }}" \
             | sh "$SHIPYARD_SCRIPTS/check-artifact-conformance.sh"
@@ -324,7 +326,7 @@ jobs:
       # Conformance says the appcast is well-formed; this says an installed client will actually SEE
       # this release as newer than the one it is running -- the property "-mavericks.N" broke.
       - name: Assert each appcast is an upgrade on its line
-        if: github.ref_type == 'tag'
+        if: needs.build-cross.outputs.publish == 'yes'
         run: |
           set -eu
           for a in appcast.xml appcast-cross.xml; do
@@ -348,7 +350,7 @@ jobs:
   # release; it cannot run the scan itself (reading job logs needs actions: read).
   scan:
     needs: [collect]
-    if: always() && (github.ref_type == 'tag')   # a build that fails after signing left logs too; scan them
+    if: always() && (needs.collect.outputs.publish == 'yes')   # a build that fails after signing left logs too; scan them
     permissions:
       actions: read     # this run's job logs
       contents: read
@@ -360,7 +362,7 @@ jobs:
 
   publish:
     needs: [collect, scan]
-    if: github.ref_type == 'tag'
+    if: needs.collect.outputs.publish == 'yes'
     permissions:
       contents: write
     uses: ModernMavericks/shipyard/.github/workflows/publish-release.yml@v1
@@ -374,7 +376,7 @@ jobs:
   # since Sparkle never offers a lower version.
   feed:
     needs: [collect, publish]
-    if: github.ref_type == 'tag'
+    if: needs.collect.outputs.publish == 'yes'
     runs-on: ubuntu-latest
     permissions:
       contents: write
