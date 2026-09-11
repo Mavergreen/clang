@@ -87,7 +87,7 @@ jobs:
           LOCAL_RELEASE: ${{ inputs.local_release }}
 
       - name: Restore ccache (cross)
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/Library/Caches/ccache
           key: ccache-${{ runner.os }}-cross-${{ hashFiles('lines/22/UPSTREAM_VERSION','build/build-cross.sh','build/versions.sh') }}
@@ -212,7 +212,7 @@ jobs:
           cd "$MAVERICKS_WORK" && tar -xf llvm-project-*.src.tar.xz
 
       - name: Restore ccache (native)
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/Library/Caches/ccache
           key: ccache-${{ runner.os }}-native-${{ hashFiles('lines/22/UPSTREAM_VERSION','build/build-native.sh','build/versions.sh') }}
