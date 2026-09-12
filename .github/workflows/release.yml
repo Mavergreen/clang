@@ -279,13 +279,25 @@ jobs:
       - uses: actions/download-artifact@v8
         with: { name: variant-native, path: dist }
 
-      # The body travels IN the artifact: publish-release.yml does not check out the repo.
+      # The body travels IN the artifact: publish-release.yml does not check out the repo. One call
+      # writes the file both sign_and_appcast.sh invocations below (native + cross) and the Release
+      # body consume -- the same bytes, so the page and Sparkle's update dialog cannot disagree.
+      #
+      # --min-os 10.9.5 describes the NATIVE .pkg (the flagship most users install), not the cross
+      # variant -- the cross appcast below carries its own real floor (--min-os 11.0) independently.
+      #
+      # CLANG_LINE mirrors the default every other call site in this repo applies (version.sh,
+      # versions.sh) -- nothing in this workflow sets it, so this is how the workflow already
+      # knows the line.
       - name: Stage release notes
         run: |
           set -eu
           VER="${{ needs.build-cross.outputs.version }}"
-          NOTES="$(sh build/release-notes-file.sh "$VER" "$VER")"
-          cp "$NOTES" dist/RELEASE_NOTES.md
+          CLANG_LINE="${CLANG_LINE:-22}"
+          sh "$SHIPYARD_SCRIPTS/release-notes.sh" \
+            --tag "$VER" --version "$VER" \
+            --product Clang --line "$CLANG_LINE" --min-os 10.9.5 \
+            --out dist/RELEASE_NOTES.md
 
       # BEFORE conformance, because conformance reads the appcasts: the cross pkg carries no install
       # floor (it is a component pkg for modern macOS), and appcast-cross.xml is where its minimum OS
