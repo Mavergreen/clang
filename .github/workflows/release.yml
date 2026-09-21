@@ -49,12 +49,6 @@ jobs:
   build-cross:
     runs-on: macos-26   # Apple Silicon (arm64); use macos-15 if 26 unavailable
     timeout-minutes: 355   # safety cap, under GitHub's 360-minute hard limit
-    # spec: build/lib.sh -- the Sparkle updater's CMake build (an explicit -S/-B call, never a
-    # preset, so this plain env var reaches it) lands here instead of build/updater-cross/.
-    # `runner` is only resolvable once a job has a runner, so this can't live in the workflow's
-    # top-level env: -- GitHub refuses the whole file at parse time if it does.
-    env:
-      MAVERICKS_BUILD_ROOT: ${{ runner.temp }}/mm-build
     outputs:
       version: ${{ steps.ver.outputs.full }}
       publish: ${{ steps.ver.outputs.release }}
@@ -64,6 +58,13 @@ jobs:
 
       - name: Install mavericks-shipyard
         uses: ModernMavericks/shipyard/.github/actions/install@v1
+
+      # spec: build/lib.sh -- the Sparkle updater's CMake build (an explicit -S/-B call, never a
+      # preset, so this plain env var reaches it) lands here instead of build/updater-cross/.
+      # $RUNNER_TEMP (a real env var, not the ${{ runner.temp }} context expression) because the
+      # runner context is not resolvable in a workflow- or job-level env: -- only inside a step.
+      - name: Build out of tree
+        run: echo "MAVERICKS_BUILD_ROOT=$RUNNER_TEMP/mm-build" >> "$GITHUB_ENV"
 
       - name: Record the pre-build tree
         run: sh "$SHIPYARD_SCRIPTS/assert-tree-clean.sh" --record
@@ -193,14 +194,16 @@ jobs:
     # bump -- so the native build gets cache hits like the cross build does.
     env:
       CCACHE_COMPILERCHECK: "%compiler% --version"
-      # See build-cross's identical entry: the updater's CMake build reads this directly.
-      MAVERICKS_BUILD_ROOT: ${{ runner.temp }}/mm-build
     steps:
       - uses: actions/checkout@v7
         with: { fetch-depth: 0 }
 
       - name: Install mavericks-shipyard
         uses: ModernMavericks/shipyard/.github/actions/install@v1
+
+      # See build-cross's identical step: the updater's CMake build reads this directly.
+      - name: Build out of tree
+        run: echo "MAVERICKS_BUILD_ROOT=$RUNNER_TEMP/mm-build" >> "$GITHUB_ENV"
 
       - name: Record the pre-build tree
         run: sh "$SHIPYARD_SCRIPTS/assert-tree-clean.sh" --record
