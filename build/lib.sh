@@ -1,5 +1,11 @@
 # build/lib.sh -- sourced helpers. The shared implementations (upstream_version, msc_scripts) live in
 # shipyard; this only locates them. Add repo-specific helpers below, not copies of shared ones.
+
+# platform: a family checkout may live on NFS, where this build cost 11.16s wall / 25% CPU against
+#           2.96s / 88% on local disk, with identical user time -- the whole difference is I/O wait.
+: "${MAVERICKS_BUILD_ROOT:=${TMPDIR:-/tmp}/mm-build}"
+export MAVERICKS_BUILD_ROOT
+
 : "${MAVERICKS_ROOT:=$(cd "$(dirname "${BASH_SOURCE:-$0}")/.." 2>/dev/null && pwd || pwd)}"
 export MAVERICKS_ROOT
 . "$MAVERICKS_ROOT/build/msc.sh"

@@ -1,0 +1,2 @@
+VERSION    # release.yml stamps the resolved version here and reads it back
+dist/    # build/package-*-pkg.sh stage there on purpose -- see their own NFS-cost comment

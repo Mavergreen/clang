@@ -44,6 +44,9 @@ env:
   # exactly where build-native.sh (which derives WORK from this) looks for it after the handoff.
   MAVERICKS_WORK: ${{ github.workspace }}/../mav-work
   MAVERICKS_USE_CCACHE: "1"
+  # spec: build/lib.sh -- the Sparkle updater's CMake build (an explicit -S/-B call, never a
+  # preset, so this plain env var reaches it) lands here instead of build/updater[-cross]/.
+  MAVERICKS_BUILD_ROOT: ${{ runner.temp }}/mm-build
 
 jobs:
   build-cross:
@@ -128,20 +131,20 @@ jobs:
       - name: Build the cross Sparkle updater (arm64/11)
         run: |
           set -eu
-          shipyard-cmake -S . -B build/updater-cross -DCLANG_VARIANT=cross \
+          shipyard-cmake -S . -B "$MAVERICKS_BUILD_ROOT/clang-updater-cross" -DCLANG_VARIANT=cross \
             -DMAVERICKS_ALLOW_GENERIC_ICON=ON -DCMAKE_OBJC_COMPILER=/usr/bin/clang
-          shipyard-cmake --build build/updater-cross --target ClangCrossUpdater
+          shipyard-cmake --build "$MAVERICKS_BUILD_ROOT/clang-updater-cross" --target ClangCrossUpdater
           # Self-update circularity: an updater that linked the toolchain it replaces could not run
           # while replacing it. Cocoa + Sparkle only.
           # `sed 1d` drops otool's header line, which is the binary's OWN PATH -- grepping it too
           # makes the gate fail whenever the build directory happens to be named after the product
           # (it did, locally, under ~/.cache/mavericks-clang/work). Dependencies only.
-          otool -L build/updater-cross/ClangCrossUpdater.app/Contents/MacOS/ClangCrossUpdater | tee /tmp/o-all.txt | sed 1d > /tmp/o.txt
+          otool -L "$MAVERICKS_BUILD_ROOT/clang-updater-cross/ClangCrossUpdater.app/Contents/MacOS/ClangCrossUpdater" | tee /tmp/o-all.txt | sed 1d > /tmp/o.txt
           cat /tmp/o-all.txt
           ! grep -qiE 'mavericks-clang' /tmp/o.txt || { echo "::error::cross updater links the toolchain"; exit 1; }
 
       - name: Package the cross .pkg + build-info
-        run: UPD_APP="$PWD/build/updater-cross/ClangCrossUpdater.app" sh build/package-cross-pkg.sh
+        run: UPD_APP="$MAVERICKS_BUILD_ROOT/clang-updater-cross/ClangCrossUpdater.app" sh build/package-cross-pkg.sh
 
       - name: Upload cross artifacts (pkg + build-info)
         uses: actions/upload-artifact@v7
@@ -165,14 +168,14 @@ jobs:
         run: |
           set -eu
           cd "$MAVERICKS_WORK"
-          tar -cf "$GITHUB_WORKSPACE/cross-handoff.tar" stage llvm-project-*.src.tar.xz
+          tar -cf "$RUNNER_TEMP/cross-handoff.tar" stage llvm-project-*.src.tar.xz
 
       - name: Upload the cross handoff (ephemeral; NEVER a release asset)
         uses: actions/upload-artifact@v7
         with:
           name: cross-toolchain-stage
           retention-days: 1
-          path: cross-handoff.tar
+          path: ${{ runner.temp }}/cross-handoff.tar
 
       - name: The build must not have written into the source tree
         run: sh "$SHIPYARD_SCRIPTS/assert-tree-clean.sh"
@@ -211,13 +214,13 @@ jobs:
         uses: actions/download-artifact@v8
         with:
           name: cross-toolchain-stage
-          path: .
+          path: ${{ runner.temp }}
 
       - name: Unpack the handoff
         run: |
           set -eu
           mkdir -p "$MAVERICKS_WORK"
-          tar -C "$MAVERICKS_WORK" -xf cross-handoff.tar
+          tar -C "$MAVERICKS_WORK" -xf "$RUNNER_TEMP/cross-handoff.tar"
           cd "$MAVERICKS_WORK" && tar -xf llvm-project-*.src.tar.xz
 
       - name: Restore ccache (native)
@@ -249,16 +252,16 @@ jobs:
       - name: Build the native Sparkle updater (x86_64/10.9)
         run: |
           set -eu
-          shipyard-cmake -S . -B build/updater -DCLANG_VARIANT=native \
+          shipyard-cmake -S . -B "$MAVERICKS_BUILD_ROOT/clang-updater" -DCLANG_VARIANT=native \
             -DMAVERICKS_ALLOW_GENERIC_ICON=ON -DCMAKE_OBJC_COMPILER=/usr/bin/clang
-          shipyard-cmake --build build/updater --target ClangUpdater
+          shipyard-cmake --build "$MAVERICKS_BUILD_ROOT/clang-updater" --target ClangUpdater
           # sed 1d: otool's header line is the binary's own path, not a dependency -- see the cross job.
-          otool -L build/updater/ClangUpdater.app/Contents/MacOS/ClangUpdater | tee /tmp/o-all.txt | sed 1d > /tmp/o.txt
+          otool -L "$MAVERICKS_BUILD_ROOT/clang-updater/ClangUpdater.app/Contents/MacOS/ClangUpdater" | tee /tmp/o-all.txt | sed 1d > /tmp/o.txt
           cat /tmp/o-all.txt
           ! grep -qiE 'mavericks-clang' /tmp/o.txt || { echo "::error::native updater links the toolchain"; exit 1; }
 
       - name: Package the native .pkg (10.9.5 floor) + build-info
-        run: UPD_APP="$PWD/build/updater/ClangUpdater.app" sh build/package-native-pkg.sh
+        run: UPD_APP="$MAVERICKS_BUILD_ROOT/clang-updater/ClangUpdater.app" sh build/package-native-pkg.sh
 
       - name: Upload native artifacts (pkg + build-info)
         uses: actions/upload-artifact@v7
