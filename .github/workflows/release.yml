@@ -1,6 +1,6 @@
 name: release
 
-# Both clang-22 variants, built on FREE standard macos runners and published tag-only.
+# Both clang-22 variants, built on FREE standard macos runners, published from a tag or a dispatch.
 # build-cross (the big build: clang+lld + the x86_64/10.9 runtimes) hands its staged toolchain to
 # build-native, which cross-HOSTS the x86_64/10.9 clang using it as the compiler. No 10.9 runner
 # anywhere; the compat guards + emitted-binary smokes are the in-CI equivalence proof.
@@ -51,6 +51,7 @@ jobs:
     timeout-minutes: 355   # safety cap, under GitHub's 360-minute hard limit
     outputs:
       version: ${{ steps.ver.outputs.full }}
+      publish: ${{ steps.ver.outputs.release }}
     steps:
       - uses: actions/checkout@v7
         with: { fetch-depth: 0 }   # version.sh counts existing <upstream>-mavericks.* tags
@@ -89,7 +90,7 @@ jobs:
           LOCAL_RELEASE: ${{ inputs.local_release }}
 
       - name: Restore ccache (cross)
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/Library/Caches/ccache
           key: ccache-${{ runner.os }}-cross-${{ hashFiles('lines/22/UPSTREAM_VERSION','build/build-cross.sh','build/versions.sh') }}
@@ -127,9 +128,9 @@ jobs:
       - name: Build the cross Sparkle updater (arm64/11)
         run: |
           set -eu
-          cmake -S . -B build/updater-cross -DCLANG_VARIANT=cross \
+          shipyard-cmake -S . -B build/updater-cross -DCLANG_VARIANT=cross \
             -DMAVERICKS_ALLOW_GENERIC_ICON=ON -DCMAKE_OBJC_COMPILER=/usr/bin/clang
-          cmake --build build/updater-cross --target ClangCrossUpdater
+          shipyard-cmake --build build/updater-cross --target ClangCrossUpdater
           # Self-update circularity: an updater that linked the toolchain it replaces could not run
           # while replacing it. Cocoa + Sparkle only.
           # `sed 1d` drops otool's header line, which is the binary's OWN PATH -- grepping it too
@@ -220,7 +221,7 @@ jobs:
           cd "$MAVERICKS_WORK" && tar -xf llvm-project-*.src.tar.xz
 
       - name: Restore ccache (native)
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/Library/Caches/ccache
           key: ccache-${{ runner.os }}-native-${{ hashFiles('lines/22/UPSTREAM_VERSION','build/build-native.sh','build/versions.sh') }}
@@ -248,9 +249,9 @@ jobs:
       - name: Build the native Sparkle updater (x86_64/10.9)
         run: |
           set -eu
-          cmake -S . -B build/updater -DCLANG_VARIANT=native \
+          shipyard-cmake -S . -B build/updater -DCLANG_VARIANT=native \
             -DMAVERICKS_ALLOW_GENERIC_ICON=ON -DCMAKE_OBJC_COMPILER=/usr/bin/clang
-          cmake --build build/updater --target ClangUpdater
+          shipyard-cmake --build build/updater --target ClangUpdater
           # sed 1d: otool's header line is the binary's own path, not a dependency -- see the cross job.
           otool -L build/updater/ClangUpdater.app/Contents/MacOS/ClangUpdater | tee /tmp/o-all.txt | sed 1d > /tmp/o.txt
           cat /tmp/o-all.txt
@@ -276,6 +277,7 @@ jobs:
     runs-on: macos-26   # pkgutil-based conformance needs macOS
     outputs:
       version: ${{ needs.build-cross.outputs.version }}
+      publish: ${{ needs.build-cross.outputs.publish }}
     steps:
       - uses: actions/checkout@v7
         with: { fetch-depth: 0 }
@@ -289,26 +291,39 @@ jobs:
       - uses: actions/download-artifact@v8
         with: { name: variant-native, path: dist }
 
-      # The body travels IN the artifact: publish-release.yml does not check out the repo.
+      # The body travels IN the artifact: publish-release.yml does not check out the repo. One call
+      # writes the file both sign_and_appcast.sh invocations below (native + cross) and the Release
+      # body consume -- the same bytes, so the page and Sparkle's update dialog cannot disagree.
+      #
+      # --min-os 10.9.5 describes the NATIVE .pkg (the flagship most users install), not the cross
+      # variant -- the cross appcast below carries its own real floor (--min-os 11.0) independently.
+      #
+      # CLANG_LINE mirrors the default every other call site in this repo applies (version.sh,
+      # versions.sh) -- nothing in this workflow sets it, so this is how the workflow already
+      # knows the line.
       - name: Stage release notes
         run: |
           set -eu
           VER="${{ needs.build-cross.outputs.version }}"
-          NOTES="$(sh build/release-notes-file.sh "$VER" "$VER")"
-          cp "$NOTES" dist/RELEASE_NOTES.md
+          CLANG_LINE="${CLANG_LINE:-22}"
+          sh "$SHIPYARD_SCRIPTS/release-notes.sh" \
+            --tag "$VER" --version "$VER" \
+            --product Clang --line "$CLANG_LINE" --min-os 10.9.5 \
+            --out dist/RELEASE_NOTES.md
 
       # BEFORE conformance, because conformance reads the appcasts: the cross pkg carries no install
       # floor (it is a component pkg for modern macOS), and appcast-cross.xml is where its minimum OS
       # is declared. With the appcasts present that passes on its own -- no floor deviation.
-      # Tag-only, so a fork PR never touches the secret.
+      # Publishing runs only, so a fork PR never touches the secret.
       - name: EdDSA-sign both .pkgs and render the appcasts
-        if: github.ref_type == 'tag'
+        if: needs.build-cross.outputs.publish == 'yes'
         env:
           SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
           GH_TOKEN: ${{ github.token }}   # sign_and_appcast.sh fetches ed25519-sign via gh
         run: |
           set -eu
-          [ -n "$SPARKLE_PRIVATE_KEY" ] || { echo "::error::SPARKLE_PRIVATE_KEY secret not set"; exit 1; }
+          # printenv, not [ -n "$SPARKLE_PRIVATE_KEY" ]: the shell never expands the key, so no trace can print it
+          printenv SPARKLE_PRIVATE_KEY | grep -q . || { echo "::error::SPARKLE_PRIVATE_KEY secret not set"; exit 1; }
           VER="${{ needs.build-cross.outputs.version }}"
           base="https://github.com/${GITHUB_REPOSITORY}/releases/download/$VER"
           NPKG="$(ls dist/*native*.pkg | head -1)"
@@ -327,7 +342,7 @@ jobs:
           echo "=== appcast-cross.xml ==="; cat dist/appcast-cross.xml
 
       - name: Artifact conformance (both variants agree; scheme/floor correct)
-        if: github.ref_type == 'tag'
+        if: needs.build-cross.outputs.publish == 'yes'
         run: |
           sh "$SHIPYARD_SCRIPTS/artifact-facts.sh" dist "${{ needs.build-cross.outputs.version }}" \
             | sh "$SHIPYARD_SCRIPTS/check-artifact-conformance.sh"
@@ -335,7 +350,7 @@ jobs:
       # Conformance says the appcast is well-formed; this says an installed client will actually SEE
       # this release as newer than the one it is running -- the property "-mavericks.N" broke.
       - name: Assert each appcast is an upgrade on its line
-        if: github.ref_type == 'tag'
+        if: needs.build-cross.outputs.publish == 'yes'
         run: |
           set -eu
           for a in appcast.xml appcast-cross.xml; do
@@ -354,9 +369,24 @@ jobs:
             dist/build-info-*.txt
             dist/appcast*.xml
 
-  publish:
+  # Before anything is published: no log of this run, and no file about to be released, carries a
+  # piece of the signing key. shipyard's publish-release.yml looks for this job's record on any signed
+  # release; it cannot run the scan itself (reading job logs needs actions: read).
+  scan:
     needs: [collect]
-    if: github.ref_type == 'tag'
+    if: always() && (needs.collect.outputs.publish == 'yes')   # a build that fails after signing left logs too; scan them
+    permissions:
+      actions: read     # this run's job logs
+      contents: read
+    uses: ModernMavericks/shipyard/.github/workflows/scan-for-key.yml@v1
+    with:
+      artifact: mavericks-clang
+    secrets:
+      SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+
+  publish:
+    needs: [collect, scan]
+    if: needs.collect.outputs.publish == 'yes'
     permissions:
       contents: write
     uses: ModernMavericks/shipyard/.github/workflows/publish-release.yml@v1
@@ -370,7 +400,7 @@ jobs:
   # since Sparkle never offers a lower version.
   feed:
     needs: [collect, publish]
-    if: github.ref_type == 'tag'
+    if: needs.collect.outputs.publish == 'yes'
     runs-on: ubuntu-latest
     permissions:
       contents: write
