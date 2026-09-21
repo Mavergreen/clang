@@ -58,6 +58,9 @@ jobs:
       - name: Install mavericks-shipyard
         uses: ModernMavericks/shipyard/.github/actions/install@v1
 
+      - name: Record the pre-build tree
+        run: sh "$SHIPYARD_SCRIPTS/assert-tree-clean.sh" --record
+
       # gpg verifies the LLVM source tarball (the signature is what makes a Renovate bump
       # self-contained); ccache is what makes every build after the first one cheap.
       - name: Ensure gpg + ccache
@@ -170,6 +173,9 @@ jobs:
           retention-days: 1
           path: cross-handoff.tar
 
+      - name: The build must not have written into the source tree
+        run: sh "$SHIPYARD_SCRIPTS/assert-tree-clean.sh"
+
   build-native:
     needs: build-cross
     runs-on: macos-26
@@ -186,6 +192,9 @@ jobs:
 
       - name: Install mavericks-shipyard
         uses: ModernMavericks/shipyard/.github/actions/install@v1
+
+      - name: Record the pre-build tree
+        run: sh "$SHIPYARD_SCRIPTS/assert-tree-clean.sh" --record
 
       - name: Ensure ccache
         run: command -v ccache >/dev/null 2>&1 || brew install ccache
@@ -257,6 +266,9 @@ jobs:
           path: |
             dist/*native*.pkg
             dist/build-info-native.txt
+
+      - name: The build must not have written into the source tree
+        run: sh "$SHIPYARD_SCRIPTS/assert-tree-clean.sh"
 
   # Both variants exist only here, so this is the only place conformance can compare them.
   collect:
