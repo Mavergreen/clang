@@ -35,7 +35,7 @@ if(NOT EXISTS "${CMAKE_SOURCE_DIR}/VERSION")
 endif()
 file(STRINGS "${CMAKE_SOURCE_DIR}/VERSION" MAV_CLANG_VERSION LIMIT_COUNT 1)
 
-# The clang LINE is the LLVM MAJOR (lines/22). Derive it from VERSION so the feed URL, the prefix
+# The clang LINE is the LLVM MAJOR (root UPSTREAM_VERSION). Derive it from VERSION so the feed URL, the prefix
 # named in the update dialog, and the product title stay honest if a new line ever appears.
 string(REGEX REPLACE "^([0-9]+)\\..*$" "\\1" MAV_CLANG_LINE "${MAV_CLANG_VERSION}")
 if(NOT MAV_CLANG_LINE MATCHES "^[0-9]+$")

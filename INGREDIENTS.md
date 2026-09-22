@@ -8,7 +8,7 @@ to port. An own-upstream bump cuts `<upstream>-mavericks.1`; an ingredient bump 
 
 | Ingredient | Pinned in | Renovate | On a bump |
 |---|---|---|---|
-| LLVM/Clang source (own upstream) | `lines/<line>/UPSTREAM_VERSION` | ✅ per-line customManager → `github-tags` on `llvm/llvm-project`, capped to the line's major | `release.yml` on push to main cuts `-mavericks.1` |
+| LLVM/Clang source (own upstream) | `UPSTREAM_VERSION` (repo root) | ✅ customManager → `github-tags` on `llvm/llvm-project`, capped to this repo's line | `release.yml` on push to main cuts `-mavericks.1` |
 | macports-legacy-support shim (prebuilt) | `MLS_VERSION # mavericks-legacysupport` in `build/versions.sh` | ✅ shared preset's `# mavericks-legacysupport` customManager | `build/versions.sh` is a watched path → repackage dispatched |
 | LLVM release-signing keys | `keys/llvm-release.asc` | ❌ **untrackable — manual refresh** (see below) | not a watched path; a stale bundle fails the build loudly, never silently |
 | MacOSX10.9 SDK | `ModernMavericks/shipyard@v1` (`fetch_sdk.sh`) | ✅ github-actions manager tracks the tag | `@v1` is a *moving* tag, so content moves without any path here changing |
@@ -50,12 +50,11 @@ failure mode is a loud build failure at `gpg --verify`, never a silent downgrade
 
 ## Lines, and the two variants a line ships
 
-A **line** is an LLVM major (`lines/22/UPSTREAM_VERSION` = 22.1.1). Lines are separate products that
-install side by side, so a clang-22 user is never carried onto clang-23; adding a major is one new
-`lines/<major>/UPSTREAM_VERSION` plus a same-shaped, same-capped Renovate manager. Each line's manager
-uses a per-line `depName` (`llvm-22`) with `packageName` pointing at the real repo — one shared
-`depName` could not be capped per line, and an uncapped line is one Renovate bump away from silently
-becoming a different product.
+A **line** is an LLVM major (this repo's root `UPSTREAM_VERSION` = 22.1.1, LINE 22). One repo ships
+one LLVM major: a clang-22 user is never carried onto clang-23, because LLVM 23 arrives as a new
+repo, not a bump of this one's `UPSTREAM_VERSION`. The Renovate manager uses a `depName`
+(`llvm-22`) with `packageName` pointing at the real repo, capped to this line -- an uncapped line
+is one Renovate bump away from silently becoming a different product.
 
 Each line ships **two variants from one release**, which never coexist on a machine:
 

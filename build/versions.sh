@@ -11,17 +11,23 @@ export WORK="${MAVERICKS_WORK:-$HOME/.cache/mavericks-clang/work}"
 . "$REPO_ROOT/build/lib.sh"
 
 # A CLANG LINE (the LLVM major) is a product: clang-22 and a future clang-23 install side by side,
-# each with its own upstream file, prefixes and identifiers, so a clang-22 user is never carried onto
-# 23 unasked. Mirrors golang's GO_LINE / nodejs's NODE_LINE. upstream_version() reads whichever file
-# MAVERICKS_UPSTREAM_FILE names, so everything below derives from the line.
-export CLANG_LINE="${CLANG_LINE:-22}"
-export MAVERICKS_UPSTREAM_FILE="$REPO_ROOT/lines/$CLANG_LINE/UPSTREAM_VERSION"
-[ -f "$MAVERICKS_UPSTREAM_FILE" ] || { echo "versions.sh: no such line: lines/$CLANG_LINE" >&2; exit 1; }
+# each with its own prefixes and identifiers, so a clang-22 user is never carried onto 23 unasked.
+# Mirrors golang's GO_LINE / nodejs's NODE_LINE. CLANG_LINE is DERIVED from the root
+# UPSTREAM_VERSION by build/version.sh, never configured separately -- see build/version.sh, which
+# owns the derivation; this just asks it.
+CLANG_LINE="$(sh "$REPO_ROOT/build/version.sh" line)"; export CLANG_LINE
+export MAVERICKS_UPSTREAM_FILE="$REPO_ROOT/UPSTREAM_VERSION"
 
-# Upstream LLVM is the Renovate-tracked lines/<line>/UPSTREAM_VERSION (bare x.y.z). The full package version lives
-# in VERSION (<upstream>-mavericks.N), which the release workflow writes and .gitignore excludes; before
-# a release is cut fall back to the computed auto version so a build never depends on a committed VERSION.
+# Upstream LLVM is the Renovate-tracked root UPSTREAM_VERSION (bare x.y.z). The full package version
+# lives in VERSION (<upstream>-mavericks.N), which the release workflow writes and .gitignore
+# excludes; before a release is cut fall back to the computed auto version so a build never depends
+# on a committed VERSION.
 export LLVM_VERSION="$(upstream_version)"
+# The line must match the upstream it points at, or every derived name is a lie.
+case "$LLVM_VERSION" in
+  "$CLANG_LINE".*) : ;;
+  *) echo "versions.sh: UPSTREAM_VERSION holds LLVM $LLVM_VERSION -- line ($CLANG_LINE) and upstream disagree" >&2; exit 1 ;;
+esac
 if [ -f "$REPO_ROOT/VERSION" ]; then
   export PKG_VERSION="$(cat "$REPO_ROOT/VERSION")"
 else

@@ -6,9 +6,9 @@
   "customManagers": [
     {
       "customType": "regex",
-      "description": "Track LLVM for the 22 LINE. Each line is a separate product with its own lines/<major>/UPSTREAM_VERSION and its own cap, so a line never jumps major: LLVM 23 arrives as a new lines/23/ with its own manager, not by moving this one. depName is per-line (llvm-22) with packageName pointing at the real repo -- one shared depName could not be capped per line.",
+      "description": "Track LLVM for this repo's line. One repo ships one LLVM major, so the cap keeps it on 22.x: LLVM 23 arrives as a new repo, never as a bump here.",
       "managerFilePatterns": [
-        "/^lines/22/UPSTREAM_VERSION$/"
+        "/^UPSTREAM_VERSION$/"
       ],
       "matchStrings": [
         "^(?<currentValue>.+?)\\s*$"

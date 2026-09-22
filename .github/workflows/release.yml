@@ -100,7 +100,7 @@ jobs:
         uses: actions/cache@v6
         with:
           path: ~/Library/Caches/ccache
-          key: ccache-${{ runner.os }}-cross-${{ hashFiles('lines/22/UPSTREAM_VERSION','build/build-cross.sh','build/versions.sh') }}
+          key: ccache-${{ runner.os }}-cross-${{ hashFiles('UPSTREAM_VERSION','build/build-cross.sh','build/versions.sh') }}
           restore-keys: ccache-${{ runner.os }}-cross-
 
       - name: Run the repo's tests + guard ingredient pins
@@ -235,7 +235,7 @@ jobs:
         uses: actions/cache@v6
         with:
           path: ~/Library/Caches/ccache
-          key: ccache-${{ runner.os }}-native-${{ hashFiles('lines/22/UPSTREAM_VERSION','build/build-native.sh','build/versions.sh') }}
+          key: ccache-${{ runner.os }}-native-${{ hashFiles('UPSTREAM_VERSION','build/build-native.sh','build/versions.sh') }}
           restore-keys: ccache-${{ runner.os }}-native-
 
       - name: Cross-host the native toolchain (x86_64/10.9)
@@ -309,14 +309,13 @@ jobs:
       # --min-os 10.9.5 describes the NATIVE .pkg (the flagship most users install), not the cross
       # variant -- the cross appcast below carries its own real floor (--min-os 11.0) independently.
       #
-      # CLANG_LINE mirrors the default every other call site in this repo applies (version.sh,
-      # versions.sh) -- nothing in this workflow sets it, so this is how the workflow already
-      # knows the line.
+      # CLANG_LINE is derived the same way every other call site in this repo derives it
+      # (version.sh, versions.sh): from the root UPSTREAM_VERSION, not configured here.
       - name: Stage release notes
         run: |
           set -eu
           VER="${{ needs.build-cross.outputs.version }}"
-          CLANG_LINE="${CLANG_LINE:-22}"
+          CLANG_LINE="$(sh build/version.sh line)"
           sh "$SHIPYARD_SCRIPTS/release-notes.sh" \
             --tag "$VER" --version "$VER" \
             --product Clang --line "$CLANG_LINE" --min-os 10.9.5 \

@@ -22,4 +22,4 @@ jobs:
       actions: write
     uses: ModernMavericks/shipyard/.github/workflows/repackage-on-ingredient-bump.yml@v1
     with:
-      own-upstream-paths: lines/22/UPSTREAM_VERSION
+      own-upstream-paths: UPSTREAM_VERSION

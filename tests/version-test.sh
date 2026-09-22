@@ -27,3 +27,13 @@ echo "$out" | grep -qx 'FULL=22.1.1-mavericks.4' || { echo "FAIL local FULL: $ou
 ) || exit 1
 
 echo "OK version-test"
+
+# CLANG_LINE is DERIVED from the upstream version, not configured. Two sources of truth for "which
+# line is this" is how a repo ends up building 22 and stamping a clang23 pkg identifier.
+derived="$(CLANG_LINE= sh "$ROOT/build/version.sh" line)"
+[ "$derived" = 22 ] || { echo "FAIL: derived line '$derived', expected 22"; exit 1; }
+
+# A caller-supplied CLANG_LINE is a CHECK, not an override: pairing CLANG_LINE=99 with a 22.x
+# UPSTREAM_VERSION must fail loudly, not silently build the wrong line.
+mismatch_out="$(CLANG_LINE=99 sh "$ROOT/build/version.sh" line 2>&1)" && { echo "FAIL: CLANG_LINE=99 sh build/version.sh line should have failed, printed: $mismatch_out"; exit 1; }
+echo "PASS: CLANG_LINE mismatch rejected"
