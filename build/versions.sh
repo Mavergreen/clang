@@ -41,7 +41,7 @@ export LLVM_SRC_URL="https://github.com/llvm/llvm-project/releases/download/llvm
 export LLVM_SIG_URL="${LLVM_SRC_URL}.sig"
 
 # The 10.9 legacy-support shim, fetched PREBUILT from the mavericks-legacysupport release
-# (ModernMavericks/macports-legacy-support), verified against its SHA256SUMS every run. Renovate bumps
+# (Mavergreen/macports-legacy-support), verified against its SHA256SUMS every run. Renovate bumps
 # this pin via the shared preset's `# mavericks-legacysupport` customManager (unquoted, marker on line).
 export MLS_VERSION=1.5.2-mavericks.4   # mavericks-legacysupport
 

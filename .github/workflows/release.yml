@@ -58,7 +58,7 @@ jobs:
         with: { fetch-depth: 0 }   # version.sh counts existing <upstream>-mavericks.* tags
 
       - name: Install mavericks-shipyard
-        uses: ModernMavericks/shipyard/.github/actions/install@v1
+        uses: Mavergreen/shipyard/.github/actions/install@v1
 
       # spec: build/lib.sh -- the Sparkle updater's CMake build (an explicit -S/-B call, never a
       # preset, so this plain env var reaches it) lands here instead of build/updater-cross/.
@@ -200,7 +200,7 @@ jobs:
         with: { fetch-depth: 0 }
 
       - name: Install mavericks-shipyard
-        uses: ModernMavericks/shipyard/.github/actions/install@v1
+        uses: Mavergreen/shipyard/.github/actions/install@v1
 
       # See build-cross's identical step: the updater's CMake build reads this directly.
       - name: Build out of tree
@@ -295,7 +295,7 @@ jobs:
         with: { fetch-depth: 0 }
 
       - name: Install mavericks-shipyard
-        uses: ModernMavericks/shipyard/.github/actions/install@v1
+        uses: Mavergreen/shipyard/.github/actions/install@v1
 
       - uses: actions/download-artifact@v8
         with: { name: variant-cross, path: dist }
@@ -389,7 +389,7 @@ jobs:
     permissions:
       actions: read     # this run's job logs
       contents: read
-    uses: ModernMavericks/shipyard/.github/workflows/scan-for-key.yml@v1
+    uses: Mavergreen/shipyard/.github/workflows/scan-for-key.yml@v1
     with:
       artifact: mavericks-clang
     secrets:
@@ -400,7 +400,7 @@ jobs:
     if: needs.collect.outputs.publish == 'yes'
     permissions:
       contents: write
-    uses: ModernMavericks/shipyard/.github/workflows/publish-release.yml@v1
+    uses: Mavergreen/shipyard/.github/workflows/publish-release.yml@v1
     with:
       version: ${{ needs.collect.outputs.version }}
       artifact: mavericks-clang

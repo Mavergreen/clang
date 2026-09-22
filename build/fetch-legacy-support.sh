@@ -14,7 +14,7 @@ A="$OUT/lib/libMacportsLegacySupport.a"
 CACHE="$WORK/legacy-support-dl"
 tag="$MLS_VERSION"
 pkg_name="macports-legacy-support-$MLS_VERSION.pkg"
-base="https://github.com/ModernMavericks/macports-legacy-support/releases/download/$tag"
+base="https://github.com/Mavergreen/macports-legacy-support/releases/download/$tag"
 
 mkdir -p "$CACHE"
 pkg="$CACHE/$pkg_name"; sums="$CACHE/SHA256SUMS"

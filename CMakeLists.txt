@@ -49,7 +49,7 @@ if(CLANG_VARIANT STREQUAL "native")
   # Per-LINE feed, not /latest/: the repo's newest release may belong to another line, which would
   # offer a 22 user a 23 upgrade unasked -- and, once 22.1.2 ships after 23.1.0, would leave 23 users
   # seeing nothing at all (Sparkle never offers a lower version, so it stalls).
-  set(_feed       "https://github.com/ModernMavericks/clang/releases/download/feed-${MAV_CLANG_LINE}/appcast.xml")
+  set(_feed       "https://github.com/Mavergreen/clang/releases/download/feed-${MAV_CLANG_LINE}/appcast.xml")
   set(_logprefix  "MavClangUpdater")
   set(_confirmbody "The clang toolchain in /usr/local/mavericks-clang-${MAV_CLANG_LINE} was updated.")
   set(_relaunch   "/tmp/.mavericks-clang-updater-relaunched")
@@ -57,7 +57,7 @@ else()
   set(_name       ClangCrossUpdater)
   set(_product    "Mavericks Clang ${MAV_CLANG_LINE} (cross)")
   set(_bundle     dev.modernmavericks.ClangCrossUpdater)
-  set(_feed       "https://github.com/ModernMavericks/clang/releases/download/feed-${MAV_CLANG_LINE}/appcast-cross.xml")
+  set(_feed       "https://github.com/Mavergreen/clang/releases/download/feed-${MAV_CLANG_LINE}/appcast-cross.xml")
   set(_logprefix  "MavClangCrossUpdater")
   set(_confirmbody "The cross toolchain in /usr/local/mavericks-clang-${MAV_CLANG_LINE}-cross was updated.")
   set(_relaunch   "/tmp/.mavericks-clang-cross-updater-relaunched")

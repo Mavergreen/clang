@@ -1,4 +1,4 @@
-ModernMavericks/clang
+Mavergreen/clang
 
 This repository builds and republishes a Clang/LLVM toolchain for Mavericks.
 It ships one kind of artifact:
@@ -14,7 +14,7 @@ It ships one kind of artifact:
 The .pkg also bakes in the macports-legacy-support static shim
 (libMacportsLegacySupport.a plus its wrapper headers), which back-fills
 newer-than-10.9 libc/libSystem APIs so a 10.9-targeted binary links. It is
-consumed as a prebuilt artifact from ModernMavericks/macports-legacy-support,
+consumed as a prebuilt artifact from Mavergreen/macports-legacy-support,
 itself a port of https://github.com/macports/macports-legacy-support
 (BSD-3-Clause). The pin lives in build/versions.sh; see INGREDIENTS.md.
 
