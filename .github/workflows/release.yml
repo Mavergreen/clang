@@ -1,9 +1,11 @@
 name: release
 
-# Both clang-22 variants, built on FREE standard macos runners, published from a tag or a dispatch.
-# build-cross (the big build: clang+lld + the x86_64/10.9 runtimes) hands its staged toolchain to
-# build-native, which cross-HOSTS the x86_64/10.9 clang using it as the compiler. No 10.9 runner
-# anywhere; the compat guards + emitted-binary smokes are the in-CI equivalence proof.
+# Both clang-22 variants, built on FREE standard macos runners. A push to main that brings a new LLVM
+# upstream auto-cuts <upstream>-mavericks.1; a tag publishes that tag; a local_release dispatch cuts the
+# next -mavericks.N; anything else builds without publishing. build-cross (the big build: clang+lld +
+# the x86_64/10.9 runtimes) hands its staged toolchain to build-native, which cross-HOSTS the x86_64/10.9
+# clang using it as the compiler. No 10.9 runner anywhere; the compat guards + emitted-binary smokes are
+# the in-CI equivalence proof.
 
 on:
   push:
@@ -30,9 +32,8 @@ permissions:
 # the old shared group discarded runs silently. golang lost one on 2026-09-09, 13 seconds after the
 # run that evicted it.
 #
-# This repo publishes only from a tag or a dispatch, but keeps the family's one shape: eight of the
-# thirteen product repos auto-cut on a push to main, and a rule that holds only in some of them is a
-# rule nobody can apply from memory.
+# A push to main can publish here (when it brings a new upstream), like most of the family's product
+# repos, which is exactly why no run that can publish may share a group.
 concurrency:
   group: >-
     release-${{ github.event_name == 'pull_request'
