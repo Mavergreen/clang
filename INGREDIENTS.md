@@ -60,8 +60,8 @@ Each line ships **two variants from one release**, which never coexist on a mach
 
 | Variant | Runs on | Prefix | Identifier | Install floor |
 |---|---|---|---|---|
-| native | x86_64 Mavericks (the flagship) | `/usr/local/mavericks-clang-<line>` | `dev.modernmavericks.clang.clang<line>` | **10.9.5** |
-| cross | modern arm64 macOS | `/usr/local/mavericks-clang-<line>-cross` | `dev.modernmavericks.clang.clang<line>-cross` | none |
+| native | x86_64 Mavericks (the flagship) | `/usr/local/mavericks-clang-<line>` | `dev.mavergreen.clang.clang<line>` | **10.9.5** |
+| cross | modern arm64 macOS | `/usr/local/mavericks-clang-<line>-cross` | `dev.mavergreen.clang.clang<line>-cross` | none |
 
 Both target `x86_64-apple-macos10.9`, and both are built on the modern arm64 runner in one run — the
 native variant is cross-*hosted* using the cross variant as its compiler, so nothing x86_64 is ever

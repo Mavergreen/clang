@@ -33,18 +33,20 @@ rm -rf "$STAGE/SDKs"; mkdir -p "$STAGE/SDKs"
 # REMOVE whatever a previous run staged: $PAYLOAD persists between runs, so a leftover .app would
 # ship silently, announcing a version it is not.
 UPD_APP="${UPD_APP:-}"
-UPD_DIR="/Library/Application Support/ModernMavericks"
-UPD_LABEL="dev.modernmavericks.ClangCrossUpdater-updatecheck"
-set --                        # build_component_pkg.sh gets --scripts only when there IS a postinstall
+UPD_DIR="/Library/Application Support/Mavergreen"
+UPD_LABEL="dev.mavergreen.ClangCrossUpdater-updatecheck"
+# Always a scripts dir: the preinstall retires the pre-flag-day receipt (see flag-day-preinstall.sh);
+# the postinstall joins it only when there is an updater to load.
+scr="$STAGING_OUT/pkg-scripts-cross"; rm -rf "$scr"; mkdir -p "$scr"
+sh "$HERE/flag-day-preinstall.sh" "dev.modernmavericks.${CROSS_IDENTIFIER#dev.mavergreen.}" "$scr/preinstall"
+set -- --scripts "$scr"
 if [ -n "$UPD_APP" ] && [ -d "$UPD_APP" ]; then
-  scr="$STAGING_OUT/pkg-scripts-cross"; rm -rf "$scr"; mkdir -p "$scr"
   sh "$SHIPYARD_SCRIPTS/stage_updater.sh" \
     --stage "$PAYLOAD" \
     --app "$UPD_APP" \
     --app-dir "$UPD_DIR" \
     --agent-label "$UPD_LABEL" \
     --scripts-out "$scr"
-  set -- --scripts "$scr"
 else
   echo ">> WARNING: no updater at '$UPD_APP'; packaging the toolchain alone (build it: shipyard-cmake --build \"\$MAVERICKS_BUILD_ROOT/clang-updater-cross\" --target ClangCrossUpdater)" >&2
   rm -rf "$PAYLOAD$UPD_DIR" "$PAYLOAD/Library/LaunchAgents/$UPD_LABEL.plist"

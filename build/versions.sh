@@ -50,13 +50,13 @@ export MLS_VERSION=1.5.2-mavericks.4   # mavericks-legacysupport
 #            and its pkg carries the 10.9.5 install floor.
 #   cross  — runs on modern arm64 and targets Mavericks; -cross suffix, no floor.
 # They never coexist on one machine. Identifiers mirror golang's
-# dev.modernmavericks.<repo>.<binary><line>[-cross] shape.
+# dev.mavergreen.<repo>.<binary><line>[-cross] shape.
 export TARGET_TRIPLE="x86_64-apple-macos10.9"
 export MACOS_MIN="10.9"
 export NATIVE_PREFIX="/usr/local/mavericks-clang-${CLANG_LINE}"
 export CROSS_PREFIX="/usr/local/mavericks-clang-${CLANG_LINE}-cross"
-export NATIVE_IDENTIFIER="dev.modernmavericks.clang.clang${CLANG_LINE}"
-export CROSS_IDENTIFIER="dev.modernmavericks.clang.clang${CLANG_LINE}-cross"
+export NATIVE_IDENTIFIER="dev.mavergreen.clang.clang${CLANG_LINE}"
+export CROSS_IDENTIFIER="dev.mavergreen.clang.clang${CLANG_LINE}-cross"
 
 # $SHIPYARD / $SHIPYARD_SCRIPTS -- which build-cross.sh, the smoke tests and the packagers all read
 # after sourcing this file -- come from build/lib.sh above, which sources build/msc.sh. This file
