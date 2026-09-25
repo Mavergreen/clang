@@ -35,31 +35,24 @@ if(NOT EXISTS "${CMAKE_SOURCE_DIR}/VERSION")
 endif()
 file(STRINGS "${CMAKE_SOURCE_DIR}/VERSION" MAV_CLANG_VERSION LIMIT_COUNT 1)
 
-# The clang LINE is the LLVM MAJOR (root UPSTREAM_VERSION). Derive it from VERSION so the feed URL, the prefix
-# named in the update dialog, and the product title stay honest if a new line ever appears.
+# The clang LINE is the LLVM MAJOR (root UPSTREAM_VERSION). Derive it from VERSION so the product, the
+# prefix named in the update dialog, and the product title stay honest if a new line ever appears.
 string(REGEX REPLACE "^([0-9]+)\\..*$" "\\1" MAV_CLANG_LINE "${MAV_CLANG_VERSION}")
 if(NOT MAV_CLANG_LINE MATCHES "^[0-9]+$")
   message(FATAL_ERROR "cannot derive the clang line from VERSION '${MAV_CLANG_VERSION}'")
 endif()
 
 if(CLANG_VARIANT STREQUAL "native")
-  set(_name       ClangUpdater)
+  set(_short      clang${MAV_CLANG_LINE})
   set(_product    "Mavericks Clang ${MAV_CLANG_LINE}")
-  set(_bundle     dev.mavergreen.ClangUpdater)
-  # Per-LINE feed, not /latest/: the repo's newest release may belong to another line, which would
-  # offer a 22 user a 23 upgrade unasked -- and, once 22.1.2 ships after 23.1.0, would leave 23 users
-  # seeing nothing at all (Sparkle never offers a lower version, so it stalls).
-  set(_feed       "https://github.com/Mavergreen/clang/releases/download/feed-${MAV_CLANG_LINE}/appcast.xml")
   set(_logprefix  "MavClangUpdater")
-  set(_confirmbody "The clang toolchain in /usr/local/mavericks-clang-${MAV_CLANG_LINE} was updated.")
+  set(_confirmbody "The clang toolchain in /usr/local/mavergreen/clang${MAV_CLANG_LINE} was updated.")
   set(_relaunch   "/tmp/.mavericks-clang-updater-relaunched")
 else()
-  set(_name       ClangCrossUpdater)
+  set(_short      clang${MAV_CLANG_LINE}-cross)
   set(_product    "Mavericks Clang ${MAV_CLANG_LINE} (cross)")
-  set(_bundle     dev.mavergreen.ClangCrossUpdater)
-  set(_feed       "https://github.com/Mavergreen/clang/releases/download/feed-${MAV_CLANG_LINE}/appcast-cross.xml")
   set(_logprefix  "MavClangCrossUpdater")
-  set(_confirmbody "The cross toolchain in /usr/local/mavericks-clang-${MAV_CLANG_LINE}-cross was updated.")
+  set(_confirmbody "The cross toolchain in /usr/local/mavergreen/clang${MAV_CLANG_LINE}-cross was updated.")
   set(_relaunch   "/tmp/.mavericks-clang-cross-updater-relaunched")
 endif()
 
@@ -67,10 +60,8 @@ endif()
 # say out loud -- here, by configuring with -DMAVERICKS_ALLOW_GENERIC_ICON=ON. Passing a stand-in
 # .icns instead would be the placeholder the gate exists to reject. See updater/ICON-CREDIT.txt.
 mavericks_add_updater_app(
-  NAME ${_name}
+  PRODUCT ${_short}
   PRODUCT_NAME "${_product}"
-  BUNDLE_ID ${_bundle}
-  FEED_URL "${_feed}"
   VERSION "${MAV_CLANG_VERSION}"
   LOG_PREFIX "${_logprefix}"
   CONFIRM_TITLE "${_product} updated"

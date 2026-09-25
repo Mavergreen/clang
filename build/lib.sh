@@ -1,3 +1,4 @@
+# platform: host-agnostic
 # build/lib.sh -- sourced helpers. The shared implementations (upstream_version, msc_scripts) live in
 # shipyard; this only locates them. Add repo-specific helpers below, not copies of shared ones.
 

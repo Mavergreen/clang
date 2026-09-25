@@ -1,4 +1,5 @@
 #!/bin/sh
+# platform: host-agnostic
 # The shipped fetch_sdk.sh exits 2 if sdk-pins.sh is not staged beside it (fetch_sdk.sh's own guard),
 # so build-cross.sh's libexec cp must always carry sdk-pins.sh along with fetch_sdk.sh. Regression
 # test: assert the cp line still names all three, in the same directory.

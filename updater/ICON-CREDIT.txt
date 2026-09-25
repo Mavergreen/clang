@@ -1,4 +1,4 @@
-Updater icon: NONE. ClangUpdater/ClangCrossUpdater ship the standard macOS
+Updater icon: NONE. clang22-updater/clang22-cross-updater ship the standard macOS
 application icon by explicit opt-in (-DMAVERICKS_ALLOW_GENERIC_ICON=ON, the
 mavericks_reject_placeholder_icon opt-out), so no artwork is embedded at all.
 

@@ -1,4 +1,5 @@
 #!/bin/sh
+# platform: host-agnostic
 # Single source of truth for every pinned input. Sourced, not executed.
 : "${REPO_ROOT:=$(cd "$(dirname "$0")/.." && pwd)}"
 export REPO_ROOT
@@ -48,16 +49,15 @@ export MLS_VERSION=1.5.2-mavericks.4   # mavericks-legacysupport
 # Both variants TARGET x86_64 Mavericks; they differ in what they RUN on.
 #   native — runs on x86_64 Mavericks (the flagship a Mavericks user installs); canonical prefix,
 #            and its pkg carries the 10.9.5 install floor.
-#   cross  — runs on modern arm64 and targets Mavericks; -cross suffix, no floor.
-# They never coexist on one machine. Identifiers mirror golang's
-# dev.mavergreen.<repo>.<binary><line>[-cross] shape.
+#   cross  — runs on modern arm64 and targets Mavericks; -cross suffix, an 11.0 install floor.
+# Identifiers mirror golang's dev.mavergreen.<repo>.<binary><line>[-cross] shape.
 export TARGET_TRIPLE="x86_64-apple-macos10.9"
 export MACOS_MIN="10.9"
 # The cross variant's OWN host tools run on arm64, so they record the family's arm64 pin instead:
 # macOS 11.0 against the 11.3 SDK that `fetch_sdk.sh --arch arm64` provides.
 export HOST_MACOS_MIN="11.0"
-export NATIVE_PREFIX="/usr/local/mavericks-clang-${CLANG_LINE}"
-export CROSS_PREFIX="/usr/local/mavericks-clang-${CLANG_LINE}-cross"
+export NATIVE_PREFIX="/usr/local/mavergreen/clang${CLANG_LINE}"
+export CROSS_PREFIX="/usr/local/mavergreen/clang${CLANG_LINE}-cross"
 export NATIVE_IDENTIFIER="dev.mavergreen.clang.clang${CLANG_LINE}"
 export CROSS_IDENTIFIER="dev.mavergreen.clang.clang${CLANG_LINE}-cross"
 

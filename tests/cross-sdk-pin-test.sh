@@ -1,4 +1,5 @@
 #!/bin/sh
+# platform: host-agnostic
 # The cross toolchain's OWN Mach-O must record the family's SDK pins: the arm64 host tools minos 11.0
 # against the 11.3 SDK, the compiler-rt builtins x86_64 only at 10.9 against the 10.9 SDK.
 # build-cross.sh takes hours on a macOS runner, so this asserts statically that its one LLVM configure

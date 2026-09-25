@@ -1,4 +1,5 @@
 #!/bin/sh
+# platform: host-agnostic
 # The CI helpers must be INERT without their env vars (local builds unaffected) and active with them.
 set -eu
 HERE="$(cd "$(dirname "$0")" && pwd)"; ROOT="$(cd "$HERE/.." && pwd)"

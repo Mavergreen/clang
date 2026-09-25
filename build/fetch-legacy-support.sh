@@ -1,4 +1,5 @@
 #!/bin/sh
+# platform: macOS-only -- pkgutil unpacks the legacy-support .pkg
 # Fetch the PREBUILT x86_64/10.9 legacy-support shim (static .a + wrapper headers) from the
 # mavericks-legacysupport release. No from-source build here: the family already ports
 # macports-legacy-support and publishes a .pkg, and re-deriving it would be a second answer to

@@ -1,4 +1,5 @@
 #!/bin/sh
+# platform: macOS-only -- runs the staged x86_64 toolchain under Rosetta against the 10.9 SDK
 # SKIP (77) until staged. Assert every shipped native HOST Mach-O is 10.9-safe (x86_64 + min 10.9 +
 # no post-10.9 imports), then a best-effort Rosetta smoke.
 #
@@ -53,7 +54,7 @@ echo "==> Rosetta functional smoke"
 # `clang++ --version` is the probe: if that executes, the toolchain runs here, and anything failing
 # afterwards is a defect in what we shipped.
 if [ ! -e "$STAGE/SDKs/MacOSX10.9.sdk" ]; then
-  SDK="$(sh "$SHIPYARD_SCRIPTS/fetch_sdk.sh")"; mkdir -p "$STAGE/SDKs"; ln -sfn "$SDK" "$STAGE/SDKs/MacOSX10.9.sdk"
+  SDK="$(sh "$SHIPYARD_SCRIPTS/fetch_sdk.sh")"; [ ! -L "$STAGE/SDKs" ] || rm -f "$STAGE/SDKs"; mkdir -p "$STAGE/SDKs"; ln -sfn "$SDK" "$STAGE/SDKs/MacOSX10.9.sdk"
 fi
 softwareupdate --install-rosetta --agree-to-license >/dev/null 2>&1 || true
 t="$(mktemp -d "${TMPDIR:-/tmp}/smoke-native.XXXXXX")"; trap 'rm -rf "$t"' EXIT   # template: 10.9 BSD mktemp requires one

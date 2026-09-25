@@ -1,4 +1,5 @@
 #!/bin/sh
+# platform: macOS-only -- builds LLVM with Apple clang against the pinned macOS SDKs
 # build-cross.sh -- cross-build a RELOCATABLE, batteries-included clang that runs on arm64 and
 # targets x86_64 Mavericks (10.9). Host tools native arm64 (macOS 11.0, 11.3 SDK); target runtimes
 # via LLVM_RUNTIME_TARGETS.

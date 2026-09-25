@@ -1,4 +1,5 @@
 #!/bin/bash
+# platform: macOS-only -- builds lldb on a stock 10.9 box against the system debugserver
 #
 # Add a modern LLDB (22.1.1) with Python scripting to the clang-22 toolchain,
 # built from source and running on macOS 10.9.

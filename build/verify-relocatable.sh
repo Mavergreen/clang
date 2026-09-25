@@ -1,4 +1,5 @@
 #!/bin/sh
+# platform: macOS-only -- otool reads the staged Mach-O load commands
 # Flag any Mach-O load command (dependency / install-name / rpath) that names an absolute path the
 # INSTALLED toolchain will not have.
 #

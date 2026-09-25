@@ -1,4 +1,5 @@
 #!/bin/sh
+# platform: macOS-only -- cross-hosts the x86_64 toolchain with Apple clang and the staged cross clang against the pinned 10.9 SDK
 # build-native.sh -- cross-HOST LLVM: produce an x86_64/10.9-HOSTED clang on an arm64 builder, using
 # the Phase-1 cross clang as the compiler. Only the host tools are cross-compiled; the x86_64/10.9
 # runtimes + polyfill assets are REUSED from the staged cross toolchain (identical target triple), so
@@ -24,6 +25,7 @@ SRC="$WORK/llvm-project-$LLVM_VERSION.src"
 echo "==> 1. make the cross clang usable as a compiler (populate its first-use SDK symlink)"
 SDK="$(sh "$SHIPYARD_SCRIPTS/fetch_sdk.sh")"; export SDK
 [ -d "$SDK" ] || { echo "FATAL: 10.9 SDK not found: '$SDK'" >&2; exit 1; }
+[ ! -L "$CROSS_STAGE/SDKs" ] || rm -f "$CROSS_STAGE/SDKs"
 mkdir -p "$CROSS_STAGE/SDKs"
 [ -e "$CROSS_STAGE/SDKs/MacOSX10.9.sdk" ] || ln -sf "$SDK" "$CROSS_STAGE/SDKs/MacOSX10.9.sdk"
 

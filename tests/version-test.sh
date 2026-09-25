@@ -1,4 +1,5 @@
 #!/bin/sh
+# platform: host-agnostic
 # Drives the version wrapper with a synthetic tag set (MAVERICKS_TAGS) so it never touches git.
 set -eu
 HERE="$(cd "$(dirname "$0")" && pwd)"; ROOT="$(cd "$HERE/.." && pwd)"

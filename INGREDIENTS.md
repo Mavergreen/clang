@@ -56,12 +56,13 @@ repo, not a bump of this one's `UPSTREAM_VERSION`. The Renovate manager uses a `
 (`llvm-22`) with `packageName` pointing at the real repo, capped to this line -- an uncapped line
 is one Renovate bump away from silently becoming a different product.
 
-Each line ships **two variants from one release**, which never coexist on a machine:
+Each line ships **two variants from one release**. Both are members of the `clang` group, so one box
+can hold both, and `mavergreen select clang` picks which one owns the bare names:
 
 | Variant | Runs on | Prefix | Identifier | Install floor |
 |---|---|---|---|---|
-| native | x86_64 Mavericks (the flagship) | `/usr/local/mavericks-clang-<line>` | `dev.mavergreen.clang.clang<line>` | **10.9.5** |
-| cross | modern arm64 macOS | `/usr/local/mavericks-clang-<line>-cross` | `dev.mavergreen.clang.clang<line>-cross` | none |
+| native | x86_64 Mavericks (the flagship) | `/usr/local/mavergreen/clang<line>` | `dev.mavergreen.clang.clang<line>` | **10.9.5** |
+| cross | modern arm64 macOS | `/usr/local/mavergreen/clang<line>-cross` | `dev.mavergreen.clang.clang<line>-cross` | 11.0 |
 
 Both target `x86_64-apple-macos10.9`, and both are built on the modern arm64 runner in one run — the
 native variant is cross-*hosted* using the cross variant as its compiler, so nothing x86_64 is ever
@@ -84,10 +85,7 @@ Machine-read by `artifact-facts.sh` as `- <check>:<glob> : <reason>` (one line e
   `find_package(MavericksShipyard)` is involved — so the runtime refusal never fires here either.
   Revisit if native-bootstrap ever builds this repo's own CMakeLists.txt, or if the shipyard pkg
   becomes a bootstrap prerequisite.
-
-The cross pkg's lack of a 10.9.5 install floor used to need one too — it runs on modern macOS and
-only *targets* 10.9, and with no updater there was no appcast to declare its minimum system version.
-`appcast-cross.xml` now declares it (`--min-os 11.0`), so conformance passes on its own.
+- floor:mavericks-clang-*-cross-*.pkg: the cross toolchain runs on macOS 11 and later (arm64) and only targets 10.9, so its archive's install floor is 11.0, not 10.9.5
 
 ## Deferred from family conventions (not artifact-conformance checks)
 

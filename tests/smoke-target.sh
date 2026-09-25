@@ -1,4 +1,5 @@
 #!/bin/sh
+# platform: macOS-only -- runs the staged cross clang and the binaries it emits
 # SKIP (77) until staged. Compile hello.cpp with the cross clang, assert the OUTPUT and the shipped
 # x86_64/10.9 runtimes are 10.9-safe (arch x86_64 + LC_VERSION_MIN_MACOSX 10.9, no post-10.9 imports).
 #
@@ -19,6 +20,7 @@ CLANGXX="$STAGE/bin/clang++"
 # would at first use. build/package-cross-pkg.sh strips this again before packaging -- a symlink into
 # ~/Library/Caches baked into a shipped .pkg is a build-machine path no user has.
 if [ ! -e "$STAGE/SDKs/MacOSX10.9.sdk" ]; then
+  [ ! -L "$STAGE/SDKs" ] || rm -f "$STAGE/SDKs"
   mkdir -p "$STAGE/SDKs"
   SDK="$(sh "$SHIPYARD_SCRIPTS/fetch_sdk.sh")"; ln -sfn "$SDK" "$STAGE/SDKs/MacOSX10.9.sdk"
 fi

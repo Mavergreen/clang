@@ -154,18 +154,19 @@ jobs:
           shipyard-cmake -S . -B "$MAVERICKS_BUILD_ROOT/clang-updater-cross" -DCLANG_VARIANT=cross \
             -DMAVERICKS_ALLOW_GENERIC_ICON=ON -DCMAKE_OBJC_COMPILER=/usr/bin/clang \
             -DCMAKE_TOOLCHAIN_FILE="$SHIPYARD_SCRIPTS/../MavericksToolchain.cmake"
-          shipyard-cmake --build "$MAVERICKS_BUILD_ROOT/clang-updater-cross" --target ClangCrossUpdater
+          shipyard-cmake --build "$MAVERICKS_BUILD_ROOT/clang-updater-cross" --target clang22-cross-updater
           # Self-update circularity: an updater that linked the toolchain it replaces could not run
           # while replacing it. Cocoa + Sparkle only.
           # `sed 1d` drops otool's header line, which is the binary's OWN PATH -- grepping it too
           # makes the gate fail whenever the build directory happens to be named after the product
           # (it did, locally, under ~/.cache/mavericks-clang/work). Dependencies only.
-          otool -L "$MAVERICKS_BUILD_ROOT/clang-updater-cross/ClangCrossUpdater.app/Contents/MacOS/ClangCrossUpdater" | tee /tmp/o-all.txt | sed 1d > /tmp/o.txt
+          otool -L "$MAVERICKS_BUILD_ROOT/clang-updater-cross/clang22-cross-updater.app/Contents/MacOS/clang22-cross-updater" > /tmp/o-all.txt
           cat /tmp/o-all.txt
-          ! grep -qiE 'mavericks-clang' /tmp/o.txt || { echo "::error::cross updater links the toolchain"; exit 1; }
+          sed 1d /tmp/o-all.txt > /tmp/o.txt
+          ! grep -qiE 'usr/local/mavergreen/' /tmp/o.txt || { echo "::error::cross updater links a product tree"; exit 1; }
 
       - name: Package the cross .pkg + build-info
-        run: UPD_APP="$MAVERICKS_BUILD_ROOT/clang-updater-cross/ClangCrossUpdater.app" sh build/package-cross-pkg.sh
+        run: UPD_APP="$MAVERICKS_BUILD_ROOT/clang-updater-cross/clang22-cross-updater.app" sh build/package-cross-pkg.sh
 
       - name: Upload cross artifacts (pkg + build-info)
         uses: actions/upload-artifact@v7
@@ -280,14 +281,15 @@ jobs:
           shipyard-cmake -S . -B "$MAVERICKS_BUILD_ROOT/clang-updater" -DCLANG_VARIANT=native \
             -DMAVERICKS_ALLOW_GENERIC_ICON=ON -DCMAKE_OBJC_COMPILER=/usr/bin/clang \
             -DCMAKE_TOOLCHAIN_FILE="$SHIPYARD_SCRIPTS/../MavericksToolchain.cmake"
-          shipyard-cmake --build "$MAVERICKS_BUILD_ROOT/clang-updater" --target ClangUpdater
+          shipyard-cmake --build "$MAVERICKS_BUILD_ROOT/clang-updater" --target clang22-updater
           # sed 1d: otool's header line is the binary's own path, not a dependency -- see the cross job.
-          otool -L "$MAVERICKS_BUILD_ROOT/clang-updater/ClangUpdater.app/Contents/MacOS/ClangUpdater" | tee /tmp/o-all.txt | sed 1d > /tmp/o.txt
+          otool -L "$MAVERICKS_BUILD_ROOT/clang-updater/clang22-updater.app/Contents/MacOS/clang22-updater" > /tmp/o-all.txt
           cat /tmp/o-all.txt
-          ! grep -qiE 'mavericks-clang' /tmp/o.txt || { echo "::error::native updater links the toolchain"; exit 1; }
+          sed 1d /tmp/o-all.txt > /tmp/o.txt
+          ! grep -qiE 'usr/local/mavergreen/' /tmp/o.txt || { echo "::error::native updater links a product tree"; exit 1; }
 
       - name: Package the native .pkg (10.9.5 floor) + build-info
-        run: UPD_APP="$MAVERICKS_BUILD_ROOT/clang-updater/ClangUpdater.app" sh build/package-native-pkg.sh
+        run: UPD_APP="$MAVERICKS_BUILD_ROOT/clang-updater/clang22-updater.app" sh build/package-native-pkg.sh
 
       - name: Upload native artifacts (pkg + build-info)
         uses: actions/upload-artifact@v7
@@ -325,7 +327,7 @@ jobs:
       # body consume -- the same bytes, so the page and Sparkle's update dialog cannot disagree.
       #
       # --min-os 10.9.5 describes the NATIVE .pkg (the flagship most users install), not the cross
-      # variant -- the cross appcast below carries its own real floor (--min-os 11.0) independently.
+      # variant -- the cross feed below carries its own real floor (--min-os 11.0) independently.
       #
       # CLANG_LINE is derived the same way every other call site in this repo derives it
       # (version.sh, versions.sh): from the root UPSTREAM_VERSION, not configured here.
@@ -339,11 +341,10 @@ jobs:
             --product Clang --line "$CLANG_LINE" --min-os 10.9.5 \
             --out dist/RELEASE_NOTES.md
 
-      # BEFORE conformance, because conformance reads the appcasts: the cross pkg carries no install
-      # floor (it is a component pkg for modern macOS), and appcast-cross.xml is where its minimum OS
-      # is declared. With the appcasts present that passes on its own -- no floor deviation.
+      # BEFORE conformance, because conformance reads each updater's feed (clang22.xml,
+      # clang22-cross.xml), which its updater polls at this repo's /releases/latest/download/.
       # Publishing runs only, so a fork PR never touches the secret.
-      - name: EdDSA-sign both .pkgs and render the appcasts
+      - name: EdDSA-sign both .pkgs and render the feeds
         if: needs.build-cross.outputs.publish == 'yes'
         env:
           SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
@@ -361,13 +362,13 @@ jobs:
           sh "$SHIPYARD_SCRIPTS/sign_and_appcast.sh" \
             --channel-title "Clang for Mavericks 22" --version "$VER" \
             --pkg-url "$base/$(basename "$NPKG")" --notes-file dist/RELEASE_NOTES.md \
-            --pkg "$NPKG" --min-os 10.9.5 > dist/appcast.xml
+            --pkg "$NPKG" --min-os 10.9.5 --product clang22 --feed-dir dist
           sh "$SHIPYARD_SCRIPTS/sign_and_appcast.sh" \
             --channel-title "Clang for Mavericks 22 (cross)" --version "$VER" \
             --pkg-url "$base/$(basename "$XPKG")" --notes-file dist/RELEASE_NOTES.md \
-            --pkg "$XPKG" --min-os 11.0 > dist/appcast-cross.xml
-          echo "=== appcast.xml ==="; cat dist/appcast.xml
-          echo "=== appcast-cross.xml ==="; cat dist/appcast-cross.xml
+            --pkg "$XPKG" --min-os 11.0 --product clang22-cross --feed-dir dist
+          echo "=== clang22.xml ==="; cat dist/clang22.xml
+          echo "=== clang22-cross.xml ==="; cat dist/clang22-cross.xml
 
       - name: Artifact conformance (both variants agree; scheme/floor correct)
         if: needs.build-cross.outputs.publish == 'yes'
@@ -375,13 +376,13 @@ jobs:
           sh "$SHIPYARD_SCRIPTS/artifact-facts.sh" dist "${{ needs.build-cross.outputs.version }}" \
             | sh "$SHIPYARD_SCRIPTS/check-artifact-conformance.sh"
 
-      # Conformance says the appcast is well-formed; this says an installed client will actually SEE
+      # Conformance says the feed is well-formed; this says an installed client will actually SEE
       # this release as newer than the one it is running -- the property "-mavericks.N" broke.
-      - name: Assert each appcast is an upgrade on its line
+      - name: Assert each feed is an upgrade on its line
         if: needs.build-cross.outputs.publish == 'yes'
         run: |
           set -eu
-          for a in appcast.xml appcast-cross.xml; do
+          for a in clang22.xml clang22-cross.xml; do
             sh "$SHIPYARD_SCRIPTS/assert_appcast_upgradeable.sh" --appcast "dist/$a" \
               --version "${{ needs.build-cross.outputs.version }}" --upstream-glob "22.*"
           done
@@ -395,7 +396,7 @@ jobs:
             dist/*.pkg
             dist/RELEASE_NOTES.md
             dist/build-info-*.txt
-            dist/appcast*.xml
+            dist/clang22*.xml
 
   # Before anything is published: no log of this run, and no file about to be released, carries a
   # piece of the signing key. shipyard's publish-release.yml looks for this job's record on any signed
@@ -421,31 +422,3 @@ jobs:
     with:
       version: ${{ needs.collect.outputs.version }}
       artifact: mavericks-clang
-
-  # The per-LINE update feed. Installed updaters poll a FIXED URL (feed-22), whose assets are replaced
-  # on every clang-22 release while the tag itself never moves. Pointing them at /latest/ instead would
-  # offer a 22 user a future 23 unasked -- and then strand 23 users the moment 22.1.2 ships after 23.1.0,
-  # since Sparkle never offers a lower version.
-  feed:
-    needs: [collect, publish]
-    if: needs.collect.outputs.publish == 'yes'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/download-artifact@v8
-        with: { name: mavericks-clang, path: dist }
-
-      - name: Point feed-22 at this release's appcasts
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -eu
-          ls dist/appcast.xml dist/appcast-cross.xml >/dev/null
-          R="$GITHUB_REPOSITORY"
-          if ! gh release view feed-22 --repo "$R" >/dev/null 2>&1; then
-            gh release create feed-22 --repo "$R" --prerelease --title "clang-22 update feed" \
-              --notes "Sparkle appcast for the clang-22 line. Assets are replaced on every clang-22 release; the tag never moves -- installed updaters poll this URL."
-          fi
-          gh release upload feed-22 --repo "$R" dist/appcast.xml dist/appcast-cross.xml --clobber
-          echo "feed-22 now serves ${{ needs.collect.outputs.version }}"

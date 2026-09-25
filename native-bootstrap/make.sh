@@ -1,4 +1,5 @@
 #!/bin/bash
+# platform: macOS-only -- builds on a stock 10.9 box with the bootstrapped toolchain
 #
 # Build GNU Make 4.4.1 for macOS 10.9 with clang-22 (the OS ships only make 3.81, from 2006).
 #

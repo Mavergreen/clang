@@ -1,4 +1,5 @@
 #!/bin/bash
+# platform: macOS-only -- bootstraps the toolchain from source on a stock 10.9 box
 #
 # Bootstrap a portable clang-22 / LLVM 22.1.1 toolchain that runs on and targets
 # macOS 10.9, entirely from source, on the stock Apple clang-3.5 seed.

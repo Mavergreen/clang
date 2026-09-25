@@ -1,4 +1,5 @@
 #!/Library/Frameworks/Python.framework/Versions/3.10/bin/python3.10
+# platform: macOS-only -- stands between lldb and Apple's 10.9 debugserver
 """
 debugserver shim for the macOS 10.9 toolchain.
 

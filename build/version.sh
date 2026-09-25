@@ -1,4 +1,5 @@
 #!/bin/sh
+# platform: host-agnostic
 # Thin wrapper: the logic lives in shipyard (scripts/version.sh) so it cannot drift between repos.
 # Every call site -- tests/version-test.sh, build/versions.sh, the release workflow, and a plain
 # `sh build/version.sh auto` -- keeps working through this.
