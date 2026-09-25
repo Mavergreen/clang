@@ -72,4 +72,15 @@ if mav_pin_builtins_min_ver "$t/bad.cmake" 'ten' 2>/dev/null; then
   echo "FAIL: mav_pin_builtins_min_ver accepted a version that is not one"; exit 1
 fi
 
+# The build-time guard over what the settings above produce: the host tools (bin/ and lib/'s host
+# libraries) arm64 only, the builtins x86_64 only, each slice recording its arch's pin.
+for line in \
+  'for f in "$STAGE"/bin/* "$STAGE"/lib/*.a "$STAGE"/lib/*.dylib; do' \
+  '  case "${f##*/}" in libc++*|libunwind*|libMacportsLegacySupport.a) continue ;; esac' \
+  'MAVERICKS_ALLOW_ARCHS=arm64 sh "$SHIPYARD_SCRIPTS/assert_binary_compatible.sh" "$@"' \
+  'MAVERICKS_ALLOW_ARCHS=x86_64 sh "$SHIPYARD_SCRIPTS/assert_binary_compatible.sh" "$STAGE"/lib/clang/*/lib/darwin/*.a'
+do
+  grep -qxF -- "$line" "$B" || { echo "FAIL: build/build-cross.sh's compat guard lost: $line"; exit 1; }
+done
+
 echo "OK cross-sdk-pin-test"

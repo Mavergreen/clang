@@ -265,4 +265,22 @@ printf '%s\n' '#!/bin/sh' \
   > "$STAGE/bin/portable-ld"
 chmod +x "$STAGE/bin/portable-ld"
 
+echo "==> 6. compat guard: the toolchain's own Mach-O record their SDK pins"
+# The host tools -- every Mach-O in bin/ and the host libraries in lib/ -- run on arm64, so they must be
+# arm64 only and record the arm64 pin. The builtins are linked into every program this toolchain
+# emits, so they must be x86_64 only and record the x86_64 pin. The C++ runtime and legacy-support
+# archives in lib/ are x86_64 target code, not host tools; tests/smoke-target.sh checks them through
+# the binary it links and the runtime dylibs. Symlinks are skipped: each names a file checked here.
+# ${1+"$@"} rather than "$@" while the list may be empty: macOS's /bin/sh is bash 3.2, whose set -u
+# calls an empty "$@" unbound.
+set --
+for f in "$STAGE"/bin/* "$STAGE"/lib/*.a "$STAGE"/lib/*.dylib; do
+  [ -f "$f" ] && [ ! -L "$f" ] || continue
+  case "${f##*/}" in libc++*|libunwind*|libMacportsLegacySupport.a) continue ;; esac
+  if lipo -info "$f" >/dev/null 2>&1; then set -- ${1+"$@"} "$f"; fi
+done
+[ "$#" -gt 0 ] || { echo "FATAL: no host Mach-O found under $STAGE" >&2; exit 1; }
+MAVERICKS_ALLOW_ARCHS=arm64 sh "$SHIPYARD_SCRIPTS/assert_binary_compatible.sh" "$@"
+MAVERICKS_ALLOW_ARCHS=x86_64 sh "$SHIPYARD_SCRIPTS/assert_binary_compatible.sh" "$STAGE"/lib/clang/*/lib/darwin/*.a
+
 echo "OK: staged cross toolchain at $STAGE"
