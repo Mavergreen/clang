@@ -82,5 +82,35 @@ for line in \
 do
   grep -qxF -- "$line" "$B" || { echo "FAIL: build/build-cross.sh's compat guard lost: $line"; exit 1; }
 done
+# The x86_64 C++ runtime archives: arch and pins per slice, through shipyard's own rule.
+for line in \
+  '. "$SHIPYARD_SCRIPTS/sdk-pins.sh"' \
+  'for a in "$RTDIR/libc++.a" "$RTDIR/libc++abi.a" "$RTDIR/libunwind.a"; do' \
+  '  slices="$(sh "$SHIPYARD_SCRIPTS/macho-slices.sh" "$a")" || { echo "FATAL: $a is not a readable Mach-O" >&2; exit 1; }' \
+  '    [ "$s_arch" = x86_64 ] || { echo "FATAL: $a has a slice for $s_arch; the target runtime is x86_64 only" >&2; exit 1; }' \
+  '    why="$(mav_sdk_rule "$s_arch" "$s_ft" "$s_minos" "$s_sdk")" || { echo "FATAL: $a: $why" >&2; exit 1; }'
+do
+  grep -qxF -- "$line" "$B" || { echo "FAIL: build/build-cross.sh's runtime-archive pin check lost: $line"; exit 1; }
+done
+
+# A cold rebuild that fails late must still keep its ccache: release.yml saves it right after the
+# cross build, whatever that build's outcome, under exactly the key the restore step reads, with the
+# same actions/cache major.
+W="$ROOT/.github/workflows/release.yml"
+ci="$(awk '
+  /^      - name: / { step = $0; uses = "" }
+  /^        uses: / { uses = $2 }
+  step ~ /Restore ccache \(cross\)/ && /^          key: / { rkey = $0; ruses = uses }
+  uses ~ /^actions\/cache\/save@/ && /^          key: / { skey = $0; suses = uses; sline = NR; sif = cond }
+  /^        if: / { cond = $0 }
+  /^      - name: / { cond = "" }
+  /^        run: sh build\/build-cross\.sh$/ { bline = NR }
+  END {
+    sub(/^actions\/cache@/, "", ruses); sub(/^actions\/cache\/save@/, "", suses)
+    ok = rkey != "" && skey == rkey && ruses != "" && suses == ruses && bline && sline > bline \
+         && (sif ~ /!cancelled\(\)/ || sif ~ /always\(\)/)
+    print ok ? "ok" : "bad: restore=[" rkey "] " ruses " save=[" skey "] " suses " if=[" sif "] build@" bline " save@" sline
+  }' "$W")"
+[ "$ci" = ok ] || { echo "FAIL: release.yml's cross ccache save: $ci"; exit 1; }
 
 echo "OK cross-sdk-pin-test"

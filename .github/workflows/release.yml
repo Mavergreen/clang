@@ -110,7 +110,20 @@ jobs:
           sh "$SHIPYARD_SCRIPTS/check-ingredient-pins.sh"
 
       - name: Cross-build the toolchain (ccache)
+        id: cross
         run: sh build/build-cross.sh
+
+      # The restore step above saves the cache only when the whole job succeeds. A cold rebuild that
+      # then fails late -- build-cross.sh's own compat guard, relocatability, the smoke -- would lose
+      # hours of ccache and make the rerun cold too, so save it here whatever happened. Same path and
+      # key as the restore step; when the job does succeed, its own save finds the key taken and skips.
+      # Not when the build never ran: that would only take the key for the cache as restored.
+      - name: Save ccache (cross), even when the build or a later check fails
+        if: ${{ !cancelled() && steps.cross.outcome != 'skipped' }}
+        uses: actions/cache/save@v6
+        with:
+          path: ~/Library/Caches/ccache
+          key: ccache-${{ runner.os }}-cross-${{ hashFiles('UPSTREAM_VERSION','build/build-cross.sh','build/versions.sh') }}
 
       # A defence-in-depth guard: build-cross.sh runs under `set -e`, so a failed build already fails
       # the job, but this turns a subtly-empty stage into a clear message before the later steps.
