@@ -43,3 +43,19 @@ mavericks_build_jobs() {
   [ "$_memjobs" -lt 1 ] && _memjobs=1
   if [ "$_memjobs" -lt "$_ncpu" ]; then printf '%s\n' "$_memjobs"; else printf '%s\n' "$_ncpu"; fi
 }
+
+# Pin compiler-rt's darwin builtins to macOS <version>, by rewriting one line of the unpacked LLVM
+# source: compiler-rt/cmake/builtin-config-ix.cmake sets DARWIN_osx_BUILTIN_MIN_VER to 10.7 with a
+# plain set(), which shadows a -D cache value, so no configure flag can move it. Fails, and leaves the
+# file alone, unless that upstream line is there exactly once -- an LLVM that moves or changes it must
+# stop the build, not quietly ship 10.7 builtins again.
+mav_pin_builtins_min_ver() {  # $1 builtin-config-ix.cmake, $2 version
+  case "$2" in
+    ''|*[!0-9.]*) echo "mav_pin_builtins_min_ver: '$2' is not a version" >&2; return 1 ;;
+  esac
+  _old='  set(DARWIN_osx_BUILTIN_MIN_VER 10.7)'
+  [ "$(grep -cxF "$_old" "$1" 2>/dev/null)" = 1 ] \
+    || { echo "mav_pin_builtins_min_ver: '$_old' is not in $1 exactly once" >&2; return 1; }
+  sed "s/^  set(DARWIN_osx_BUILTIN_MIN_VER 10\\.7)\$/  set(DARWIN_osx_BUILTIN_MIN_VER $2)/" "$1" > "$1.tmp" \
+    && mv "$1.tmp" "$1"
+}

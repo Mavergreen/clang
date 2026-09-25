@@ -39,6 +39,9 @@ gpg --batch --quiet --import "$HERE/../keys/llvm-release.asc"
 gpg --batch --quiet --verify "$tb.sig" "$tb" || { echo "FATAL: LLVM source signature failed" >&2; exit 1; }
 rm -rf "$SRC"; tar -xf "$tb" -C "$WORK"
 [ -d "$SRC/llvm" ] || { echo "FATAL: tarball did not unpack to $SRC" >&2; exit 1; }
+# The one edit to the verified source; "THE BUILTINS ARE x86_64/10.9 ONLY" in step 3 says why.
+mav_pin_builtins_min_ver "$SRC/compiler-rt/cmake/builtin-config-ix.cmake" "$MACOS_MIN" \
+  || { echo "FATAL: could not pin the compiler-rt builtins' macOS minimum to $MACOS_MIN" >&2; exit 1; }
 
 echo "==> 3. configure (arm64 host tools + x86_64/10.9 runtimes)"
 # THE RUNTIMES TARGET IS NOT THE PRODUCT TARGET, and it cannot be. LLVM's runtimes/CMakeLists.txt
@@ -95,8 +98,31 @@ RUNTIME_TARGET="x86_64-apple-darwin"
 # THE HOST TOOLS RECORD THE ARM64 PIN. With no CMAKE_OSX_* the host compiler targets the runner's own
 # macOS and SDK, and every clang/lld binary and host library in the cross pkg recorded minos 26.0 sdk
 # 26.5. The three CMAKE_OSX_* settings below reach the host build and nothing else: LLVM configures
-# the runtimes sub-build through llvm_ExternalProject_Add, which forwards CMAKE_SYSROOT (unset here)
-# but none of CMAKE_OSX_*, so that sub-build sees only its own RUNTIMES_<triple>_ values.
+# the runtimes and builtins sub-builds through llvm_ExternalProject_Add, which forwards CMAKE_SYSROOT
+# (unset here) but none of CMAKE_OSX_*, so those see only their own RUNTIMES_/BUILTINS_<triple>_
+# values.
+#
+# THE BUILTINS ARE x86_64/10.9 ONLY, the one target this toolchain promises. Left alone, LLVM builds
+# compiler-rt's builtins (lib/clang/<N>/lib/darwin/libclang_rt.*.a) in a separate "default" sub-build
+# for the HOST triple, which receives none of the RUNTIMES_<triple>_ values -- the runtimes sub-build
+# itself is configured with COMPILER_RT_BUILD_BUILTINS=OFF. That default build asked xcrun for an SDK
+# and built every Apple platform and arch it could: i386, x86_64h, arm64, arm64e, the iOS and simulator
+# libraries, and x86_64 at macOS 10.7 against the runner's SDK. LLVM_BUILTIN_TARGETS names the runtimes
+# triple instead, so the builtins get their own sub-build that takes BUILTINS_<triple>_ values
+# (RUNTIMES_BUILD_ALLOW_DARWIN admits the bare darwin triple there too):
+#
+#   DARWIN_macosx_CACHED_SYSROOT   -- the SDK compiler-rt passes as -isysroot to every builtins
+#                                     compile; unset, it asks xcrun. CMAKE_OSX_SYSROOT keeps the
+#                                     sub-build's own configure checks on the same SDK.
+#   DARWIN_osx_BUILTIN_ARCHS       -- a preset list is taken as already probed, so x86_64 is the only
+#                                     macOS arch built.
+#   COMPILER_RT_ENABLE_IOS         -- defaults ON whenever the runner has an iOS SDK.
+#   COMPILER_RT_ENABLE_MACCATALYST -- defaults ON when the compiler accepts -darwin-target-variant,
+#                                     and then compiles the macOS builtins for Mac Catalyst as well.
+#
+# The minimum is not a setting at all. compiler-rt clears CMAKE_OSX_DEPLOYMENT_TARGET for the builtins
+# and hardcodes DARWIN_osx_BUILTIN_MIN_VER 10.7, so step 2 rewrites that one line of the unpacked
+# source (mav_pin_builtins_min_ver in build/lib.sh).
 RC="-isystem $HERE/shim/include -isystem $LEGACY_INC/LegacySupport -include $HERE/shim/aligned_alloc.h -fno-jump-tables"
 rm -rf "$BLD"
 shipyard-cmake -G Ninja -S "$SRC/llvm" -B "$BLD" \
@@ -109,6 +135,12 @@ shipyard-cmake -G Ninja -S "$SRC/llvm" -B "$BLD" \
   -DLLVM_ENABLE_PROJECTS="clang;lld" \
   -DLLVM_ENABLE_RUNTIMES="libcxx;libcxxabi;libunwind;compiler-rt" \
   -DLLVM_RUNTIME_TARGETS="$RUNTIME_TARGET" -DRUNTIMES_BUILD_ALLOW_DARWIN=ON \
+  -DLLVM_BUILTIN_TARGETS="$RUNTIME_TARGET" \
+  "-DBUILTINS_${RUNTIME_TARGET}_CMAKE_OSX_SYSROOT=$SDK" \
+  "-DBUILTINS_${RUNTIME_TARGET}_DARWIN_macosx_CACHED_SYSROOT=$SDK" \
+  "-DBUILTINS_${RUNTIME_TARGET}_DARWIN_osx_BUILTIN_ARCHS=x86_64" \
+  "-DBUILTINS_${RUNTIME_TARGET}_COMPILER_RT_ENABLE_IOS=OFF" \
+  "-DBUILTINS_${RUNTIME_TARGET}_COMPILER_RT_ENABLE_MACCATALYST=OFF" \
   -DLLVM_TARGETS_TO_BUILD="X86;AArch64" \
   -DLLVM_INCLUDE_TESTS=OFF -DLLVM_INCLUDE_EXAMPLES=OFF -DLLVM_INCLUDE_BENCHMARKS=OFF \
   -DLLVM_ENABLE_LIBXML2=OFF -DLLVM_ENABLE_ZSTD=OFF -DLLVM_ENABLE_LIBEDIT=OFF \
