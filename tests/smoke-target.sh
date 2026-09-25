@@ -15,10 +15,8 @@ STAGE="$WORK/stage$CROSS_PREFIX"
 CLANGXX="$STAGE/bin/clang++"
 [ -x "$CLANGXX" ] || { echo "not built -- skipping"; exit 77; }
 
-# clang.cfg references <CFGDIR>/../SDKs/MacOSX10.9.sdk. The SDK is NOT redistributed (Apple's bytes),
-# so the staged tree carries only an empty SDKs/; populate it here the same way an installed toolchain
-# would at first use. build/package-cross-pkg.sh strips this again before packaging -- a symlink into
-# ~/Library/Caches baked into a shipped .pkg is a build-machine path no user has.
+# clang.cfg references <CFGDIR>/../SDKs/MacOSX10.9.sdk, which is not redistributed; point it at the
+# fetched SDK here. After packaging, SDKs is a link into ../var/ that dangles in the stage, so it goes.
 if [ ! -e "$STAGE/SDKs/MacOSX10.9.sdk" ]; then
   [ ! -L "$STAGE/SDKs" ] || rm -f "$STAGE/SDKs"
   mkdir -p "$STAGE/SDKs"
