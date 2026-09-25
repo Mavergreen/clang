@@ -115,15 +115,17 @@ jobs:
 
       # The restore step above saves the cache only when the whole job succeeds. A cold rebuild that
       # then fails late -- build-cross.sh's own compat guard, relocatability, the smoke -- would lose
-      # hours of ccache and make the rerun cold too, so save it here whatever happened. Same path and
-      # key as the restore step; when the job does succeed, its own save finds the key taken and skips.
-      # Not when the build never ran: that would only take the key for the cache as restored.
+      # hours of ccache and make the rerun cold too, so save it here whatever happened. The key is the
+      # restore key plus this run and attempt: a cache key can never be overwritten, so a partial
+      # cache saved under the restore key itself would lock it for good. The restore step's
+      # restore-keys prefix picks the newest of these up, and a successful job still saves under the
+      # exact restore key as before. Not when the build never ran: there is nothing new to save.
       - name: Save ccache (cross), even when the build or a later check fails
         if: ${{ !cancelled() && steps.cross.outcome != 'skipped' }}
         uses: actions/cache/save@v6
         with:
           path: ~/Library/Caches/ccache
-          key: ccache-${{ runner.os }}-cross-${{ hashFiles('UPSTREAM_VERSION','build/build-cross.sh','build/versions.sh') }}
+          key: ccache-${{ runner.os }}-cross-${{ hashFiles('UPSTREAM_VERSION','build/build-cross.sh','build/versions.sh') }}-${{ github.run_id }}-${{ github.run_attempt }}
 
       # A defence-in-depth guard: build-cross.sh runs under `set -e`, so a failed build already fails
       # the job, but this turns a subtly-empty stage into a clear message before the later steps.

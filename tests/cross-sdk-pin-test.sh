@@ -94,22 +94,27 @@ do
 done
 
 # A cold rebuild that fails late must still keep its ccache: release.yml saves it right after the
-# cross build, whatever that build's outcome, under exactly the key the restore step reads, with the
-# same actions/cache major.
+# cross build, whatever that build's outcome, with the same actions/cache major, under the restore
+# key plus this run and attempt -- never the restore key itself, which a partial cache would lock --
+# and the restore step's restore-keys must be a prefix of that key, or nothing ever restores it.
 W="$ROOT/.github/workflows/release.yml"
 ci="$(awk '
   /^      - name: / { step = $0; uses = "" }
   /^        uses: / { uses = $2 }
   step ~ /Restore ccache \(cross\)/ && /^          key: / { rkey = $0; ruses = uses }
+  step ~ /Restore ccache \(cross\)/ && /^          restore-keys: / { rpre = $0; sub(/^          restore-keys: /, "", rpre) }
   uses ~ /^actions\/cache\/save@/ && /^          key: / { skey = $0; suses = uses; sline = NR; sif = cond }
   /^        if: / { cond = $0 }
   /^      - name: / { cond = "" }
   /^        run: sh build\/build-cross\.sh$/ { bline = NR }
   END {
     sub(/^actions\/cache@/, "", ruses); sub(/^actions\/cache\/save@/, "", suses)
-    ok = rkey != "" && skey == rkey && ruses != "" && suses == ruses && bline && sline > bline \
+    sval = skey; sub(/^          key: /, "", sval)
+    ok = rkey != "" && skey == rkey "-${{ github.run_id }}-${{ github.run_attempt }}" \
+         && rpre != "" && index(sval, rpre) == 1 \
+         && ruses != "" && suses == ruses && bline && sline > bline \
          && (sif ~ /!cancelled\(\)/ || sif ~ /always\(\)/)
-    print ok ? "ok" : "bad: restore=[" rkey "] " ruses " save=[" skey "] " suses " if=[" sif "] build@" bline " save@" sline
+    print ok ? "ok" : "bad: restore=[" rkey "] restore-keys=[" rpre "] " ruses " save=[" skey "] " suses " if=[" sif "] build@" bline " save@" sline
   }' "$W")"
 [ "$ci" = ok ] || { echo "FAIL: release.yml's cross ccache save: $ci"; exit 1; }
 
