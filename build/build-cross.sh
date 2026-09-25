@@ -1,6 +1,7 @@
 #!/bin/sh
 # build-cross.sh -- cross-build a RELOCATABLE, batteries-included clang that runs on arm64 and
-# targets x86_64 Mavericks (10.9). Host tools native arm64; target runtimes via LLVM_RUNTIME_TARGETS.
+# targets x86_64 Mavericks (10.9). Host tools native arm64 (macOS 11.0, 11.3 SDK); target runtimes
+# via LLVM_RUNTIME_TARGETS.
 #
 # This is the EASY direction. Wowfunhappy's native-bootstrap/build.sh climbs 3.9 -> 6 -> 14 -> 22
 # only because the stock 10.9 seed (Apple clang-3.5) cannot build modern LLVM; on a modern host the
@@ -16,9 +17,11 @@ SRC="$WORK/llvm-project-$LLVM_VERSION.src"
 BLD="$WORK/llvm-build"
 mkdir -p "$WORK"
 
-echo "==> 1. pinned 10.9 SDK + legacy-support shim"
+echo "==> 1. pinned SDKs (10.9 for the target, 11.3 for the arm64 host) + legacy-support shim"
 SDK="$(sh "$SHIPYARD_SCRIPTS/fetch_sdk.sh")"; export SDK
 [ -d "$SDK" ] || { echo "FATAL: 10.9 SDK not found: '$SDK'" >&2; exit 1; }
+HOST_SDK="$(sh "$SHIPYARD_SCRIPTS/fetch_sdk.sh" --arch arm64)"
+[ -d "$HOST_SDK" ] || { echo "FATAL: arm64 host SDK not found: '$HOST_SDK'" >&2; exit 1; }
 LEGACY_A="$(sh "$HERE/fetch-legacy-support.sh" | tail -1)"
 LEGACY_INC="$(dirname "$(dirname "$LEGACY_A")")/include"
 [ -f "$LEGACY_A" ] || { echo "FATAL: legacy-support .a missing" >&2; exit 1; }
@@ -88,6 +91,12 @@ RUNTIME_TARGET="x86_64-apple-darwin"
 # -include shim/aligned_alloc.h back-fills the ONE 10.9-missing symbol the shadow headers do not cover
 # and libc++ cannot be told to stop using (see that header). Runtimes sub-build only -- never the
 # shipped clang.cfg.
+#
+# THE HOST TOOLS RECORD THE ARM64 PIN. With no CMAKE_OSX_* the host compiler targets the runner's own
+# macOS and SDK, and every clang/lld binary and host library in the cross pkg recorded minos 26.0 sdk
+# 26.5. The three CMAKE_OSX_* settings below reach the host build and nothing else: LLVM configures
+# the runtimes sub-build through llvm_ExternalProject_Add, which forwards CMAKE_SYSROOT (unset here)
+# but none of CMAKE_OSX_*, so that sub-build sees only its own RUNTIMES_<triple>_ values.
 RC="-isystem $HERE/shim/include -isystem $LEGACY_INC/LegacySupport -include $HERE/shim/aligned_alloc.h -fno-jump-tables"
 rm -rf "$BLD"
 shipyard-cmake -G Ninja -S "$SRC/llvm" -B "$BLD" \
@@ -95,6 +104,8 @@ shipyard-cmake -G Ninja -S "$SRC/llvm" -B "$BLD" \
   -DCMAKE_BUILD_TYPE=Release \
   -DCMAKE_INSTALL_PREFIX="$CROSS_PREFIX" \
   -DCMAKE_C_COMPILER=/usr/bin/clang -DCMAKE_CXX_COMPILER=/usr/bin/clang++ \
+  -DCMAKE_OSX_ARCHITECTURES=arm64 -DCMAKE_OSX_DEPLOYMENT_TARGET="$HOST_MACOS_MIN" \
+  -DCMAKE_OSX_SYSROOT="$HOST_SDK" \
   -DLLVM_ENABLE_PROJECTS="clang;lld" \
   -DLLVM_ENABLE_RUNTIMES="libcxx;libcxxabi;libunwind;compiler-rt" \
   -DLLVM_RUNTIME_TARGETS="$RUNTIME_TARGET" -DRUNTIMES_BUILD_ALLOW_DARWIN=ON \
