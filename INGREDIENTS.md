@@ -72,6 +72,7 @@ and `identifier` are the keys that are supposed to differ.
 
 ## Conformance deviations
 
+- rosetta:tests/smoke-native.sh: the native-toolchain smoke test primes Rosetta (`softwareupdate --install-rosetta`) and runs the staged x86_64/10.9 `clang++` under `arch -x86_64` to compile and execute a hello-world, proving the shipped native toolchain actually works rather than just looking right on disk. This is the check the cross variant cannot run (its host tools are arm64 by design); only the native leg's shipped x86_64 host clang++ needs it. Availability never gates: it SKIPs when `arch -x86_64 clang++ --version` cannot execute at all (no Rosetta), but once Rosetta demonstrably runs the binary, a compile/link/run failure is treated as a real product defect, not skipped. Reconsider when this validation can run on an x86_64 host (the 10.9 box or an Intel runner) instead of via Rosetta on the arm64 release runner; at the latest before macOS 28 removes Rosetta.
 Machine-read by `artifact-facts.sh` as `- <check>:<glob> : <reason>` (one line each, plain glob):
 
 - shipyard-cmake-only:native-bootstrap/*: this tree bootstraps a whole toolchain from nothing on a
